@@ -1,18 +1,45 @@
 # Cold Fear (Xbox) para Nintendo Switch
 
-Port experimental por recompilacao estatica: x86 -> C -> ARM64, com xboxrecomp e Vulkan/NVK. O build 0.1.2 registrou o semaforo da GPU e chegou a configuracao de video, mas sofreu um crash com ponteiro invalido. Menu e gameplay ainda nao foram validados.
+Port experimental por recompilação estática: o executável x86 do Xbox vira C, compilado para ARM64, com o toolkit [xboxrecomp](xboxrecomp/) e um renderizador Vulkan (NVK). Não é emulação: o código do jogo roda nativo, e só o hardware do Xbox (GPU NV2A, áudio, kernel) é reimplementado.
+
+Versão **0.0.1** — autor RECOMP-GUTO.
+
+**Este repositório não contém o jogo.** Os arquivos do disco, o XBE e o código C gerado a partir dele não são distribuídos. Para compilar você precisa da sua própria cópia de Cold Fear (Xbox).
 
 ## Estado
 
-- Build atual: **0.1.3 boot-trace**, de diagnostico. Registra chamadas da inicializacao grafica para localizar onde os registradores ou a pilha se corrompem. Nao representa uma correcao confirmada do crash. Detalhes em `docs/BOOT_03.md`.
-- Build Vulkan/NVK e teste do diagnostico concluidos. NRO: `switch_sd/switch/coldfear/coldfear.nro` (46.500.037 bytes). Basta substituir esse arquivo no SD e recuperar o novo log.
-- Pacote de teste pronto em `switch_sd/switch/coldfear/`, com NRO, configuração, manifesto de hashes e os 110 arquivos do disco.
-- XBE identificado como Cold Fear, Title ID `0x5553004B`, entrada `0x0001BA4E`.
-- Os 110 arquivos em `game/` foram comparados com a ISO fornecida, por tamanho e SHA-256. Relatório: `analysis/disc-verification.json`.
-- Trabalho inicial recuperado de `Cold Fear/ColdFearPort`: 13.259 funções traduzidas, 102 stubs não resolvidos e 699 ocorrências de instruções não implementadas. Algumas podem corresponder a dados interpretados como código; execução e análise são necessárias para distinguir os casos.
-- Runtime e SDK NVK copiados do MKSM. Build selecionado: Vulkan. OpenGL tem um erro de compilação herdado e não foi corrigido.
-- Sem patches de endereços de MKSM/Burnout aplicados ao Cold Fear.
-- Corrigido um falso positivo do detector em `0x00211062`, adjacente a uma tabela de saltos; correção reproduzível por `tools/fix_generated.py`. Detalhes em `docs/TRANSLATION_STATUS.md`.
+Jogável no Switch real, do menu ao gameplay no navio.
+
+- Áudio: efeitos, vozes e música (streams do FMOD tocados no host).
+- Vídeo: Vulkan/NVK com shaders de vértice e de pixel do NV2A traduzidos para GLSL, névoa, stencil, mapas de sombra da lâmpada, texturas de volume, polygon offset, rampa de gama do jogo.
+- Iluminação fixa do NV2A (luzes por vértice, geração de coordenadas de textura e matrizes de textura) implementada no shader de vértice.
+- Brilho ajustável no jogo: segure **−** e use o direcional **cima/baixo** (0 a 10, salvo no SD).
+- Desempenho: cerca de 17–24 FPS no navio, com overclock opcional.
+
+Problemas conhecidos:
+
+- Quadrados escuros de uma passada de sombra por subtração em algumas áreas (`NV2A_SKIP_REVSUB=1` no `coldfear_env.txt` esconde a passada enquanto não há correção).
+- Brilho especular da iluminação fixa ainda não calculado.
+- Logs de diagnóstico ainda compilados.
+
+## O que você precisa
+
+- devkitPro com devkitA64, libnx e SDL2 (MSYS2).
+- O SDK NVK em `nvk_sdk/` (Mesa NVK para Switch; não incluído aqui por tamanho).
+- Python com `capstone`, para gerar o código C.
+- Os arquivos do seu disco de Cold Fear em `game/` (`default.xbe`, `bigfile.bin`, `data/`...).
+
+## Gerar o código C
+
+```powershell
+.\tools\regen.ps1 -Python 'C:\caminho\python.exe'
+```
+
+Analisa `game/default.xbe`, traduz para `gen/` e aplica as correções em `tools/fix_*.py`. Para conferir os arquivos do disco contra uma ISO:
+
+```powershell
+python .\tools\verify_disc.py 'C:\caminho\Cold Fear.iso'
+```
 
 ## Compilar
 
@@ -22,17 +49,15 @@ No MSYS2/devkitPro, dentro desta pasta:
 bash switch/build.sh
 ```
 
-Requer devkitA64, libnx, SDL2 e dependências do runtime instaladas no devkitPro. O SDK NVK está em `nvk_sdk/`. O script usa o toolkit local e gera `build-switch-coldfear/coldfear_recomp.nro`. Log: `analysis/build-switch.log`.
+Gera `build-switch-coldfear/coldfear_recomp.nro`.
 
-## Preparar cartão SD
-
-Depois de compilar, no PowerShell:
+## Preparar o cartão SD
 
 ```powershell
 .\tools\package.ps1
 ```
 
-Copie o conteúdo de `switch_sd/switch/` para `sdmc:/switch/`:
+Copie `switch_sd/switch/` para `sdmc:/switch/`:
 
 ```text
 switch/coldfear/
@@ -44,26 +69,19 @@ switch/coldfear/
     data/
 ```
 
-Inicie por Title Takeover (segure R ao abrir um jogo instalado). Este é um build de diagnóstico: travamentos ou tela preta precisam ser investigados. O log esperado é `sdmc:/switch/coldfear/coldfear_log.txt`. Guarde também o relato do último quadro exibido e se os controles responderam. Não há promessa de FPS ou de jogabilidade nesta etapa.
+Abra pelo Title Takeover (segure R ao abrir um jogo instalado), para ter a memória inteira. O log fica em `sdmc:/switch/coldfear/coldfear_log.txt`.
 
-## Regenerar C
+## Opções (`coldfear_env.txt`)
 
-```powershell
-.\tools\regen.ps1 -Python 'C:\caminho\python.exe'
-```
+Uma por linha, `CHAVE=valor`; linhas com `#` são ignoradas.
 
-O Python escolhido precisa de `capstone`. A análise fica em `analysis/`; a tradução fica em `gen/`. Regenerar não resolve automaticamente os stubs ou as instruções pendentes.
+| Opção | Efeito |
+| --- | --- |
+| `COLDFEAR_LOG=0` | sem log |
+| `NV2A_BRIGHTNESS=n` | brilho inicial (0–10) se ainda não houver `brightness.txt` |
+| `NV2A_SKIP_REVSUB=1` | esconde a passada que desenha os quadrados escuros |
+| `COLDFEAR_CPU_MHZ` / `COLDFEAR_GPU_MHZ` / `COLDFEAR_MEM_MHZ` | overclock opcional |
 
-Para verificar novamente os arquivos da ISO:
+## Licenças e origem
 
-```powershell
-python .\tools\verify_disc.py 'C:\caminho\Cold Fear.iso'
-```
-
-## Referências e próximos marcos
-
-Veja `docs/PROVENANCE.md` para a origem dos componentes. MKSM e Burnout orientam o runtime de Xbox original; NFS Most Wanted usa Xbox 360/ReXGlue, portanto é referência de organização, não código reaproveitável do jogo.
-
-Próximos marcos: obter log do primeiro boot, resolver o primeiro bloqueio real, validar menu/controles, renderização, áudio, saves e gameplay. Não distribuir os arquivos do jogo, a ISO ou o código gerado. Licenças dos componentes permanecem em `LICENSE`, `NOTICE` e `xboxrecomp/LICENSES/`.
-
-
+Veja `docs/PROVENANCE.md` para a origem dos componentes. O toolkit xboxrecomp mantém suas licenças em `xboxrecomp/LICENSE`, `xboxrecomp/NOTICE` e `xboxrecomp/LICENSES/`; o restante segue `LICENSE` e `NOTICE` na raiz. Não distribua os arquivos do jogo, a ISO ou o código gerado.
