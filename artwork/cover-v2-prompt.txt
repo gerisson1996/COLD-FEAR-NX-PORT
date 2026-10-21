@@ -1,0 +1,1 @@
+Built-in image_gen edit: Remove only the bottom text CAPA PERSONALIZADA, filling the letters with surrounding dark artwork. Preserve all other artwork, typography, logos and composition.

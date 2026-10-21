@@ -1,0 +1,38 @@
+[
+ {
+  "start": "0x0001B9DA",
+  "note": "PsCreateSystemThreadEx StartContext1 observed at runtime; decodes as a function body."
+ },
+ {
+  "start": "0x00028C80",
+  "note": "Indirect-call target observed at runtime; decodes as a function body."
+ },
+ {
+  "start": "0x00198340",
+  "note": "PsCreateSystemThreadEx StartContext1 observed at runtime; decodes as a function body."
+ },
+ {
+  "start": "0x002FF6E0",
+  "note": "Indirect-call target observed at runtime; decodes as a function body."
+ },
+ {
+  "start": "0x002FFF1E",
+  "note": "Indirect-call target observed at runtime; decodes as a function body."
+ },
+ {
+  "start": "0x00301D3A",
+  "note": "Indirect-call target observed at runtime; decodes as a function body."
+ },
+ {
+  "start": "0x00103940",
+  "note": "vtable 0x0031F708 slot 1; not detected by disasm (starts right after the previous function's ret). Missing from gen/ left the entity uninitialised: Cold Fear DeadBody crash."
+ },
+ {
+  "start": "0x00107EC0",
+  "note": "vtable 0x0031EF48 slot 1; not detected by disasm (starts right after the previous function's ret). Missing from gen/ left the entity uninitialised: Cold Fear DeadBody crash."
+ },
+ {
+  "start": "0x003012D5",
+  "note": "XPP (controller driver) indirect-call target, 2079 \"[ICALL] Failed to resolve\" at runtime; starts right after a ret 8, missed by the disasm."
+ }
+]

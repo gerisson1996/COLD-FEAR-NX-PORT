@@ -1,0 +1,1 @@
+Built-in image_gen: Adapt the existing cover into a square Cold Fear icon for Nintendo Switch NRO. Preserve maritime horror artwork, ship, protagonist, blue-black palette and red lights. Large readable COLD FEAR, small Switch corner logo, XBOX PORT bottom. No CAPA PERSONALIZADA. Full bleed, no rounded corners. Exported to 256x256 PNG and JPEG using System.Drawing.

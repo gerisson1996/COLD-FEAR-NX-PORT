@@ -1,0 +1,27 @@
+build/
+build-*/
+switch_sd/
+nvk_sdk/
+__pycache__/
+*.pyc
+gen/
+analysis/
+game/
+*.xbe
+*.iso
+*.xiso
+*.nro
+*.elf
+*.log
+*.bin
+
+# Game data and anything derived from it: never in the repository.
+*.ISO
+*.XBE
+_backup_gen/
+_to_delete/
+switch_sd/
+# Local tool state
+.claude/
+*.tmp
+*.bmp
