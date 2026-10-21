@@ -88,6 +88,16 @@ O port é grátis e o código é aberto. Se quiser ajudar no tempo de desenvolvi
 
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-apoiar-FF5E5B?logo=ko-fi&logoColor=white)](https://ko-fi.com/gerissoncassiano)
 
+Ou por **PIX** (chave e-mail): `pocketneogames@gmail.com`
+
+<img src=".github/pix-qr.png" alt="QR Code PIX" width="200">
+
+PIX copia e cola:
+
+```text
+00020126460014br.gov.bcb.pix0124pocketneogames@gmail.com5204000053039865802BR5911RECOMP GUTO6006BRASIL62070503***63048D6B
+```
+
 Doação é opcional: ninguém precisa doar para jogar, e o projeto não inclui nem vende o jogo.
 
 ## Licenças e origem
