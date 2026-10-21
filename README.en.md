@@ -54,6 +54,11 @@ Known issues:
 - Specular highlights of the fixed-function lighting are not computed yet.
 - Diagnostic logging is still compiled in.
 
+## Upcoming fixes
+
+- **Dark squares (the `[REVSUB]` pass):** cause found. The lamps' shadow-map comparison was inverted, so they darkened their whole lit area. The fix is being tested on the Switch and goes into the next version.
+- **Performance:** raise the current ~17–24 FPS on the ship by cutting the cost of switching between the game's threads, of TLS reads and of the NVK driver's allocations.
+
 ## Play (ready-made release)
 
 1. Download `coldfear.nro` from [Releases](https://github.com/gerisson1996/COLD-FEAR-NX-PORT/releases).

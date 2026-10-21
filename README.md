@@ -62,6 +62,11 @@ Problemas conhecidos:
 - Brilho especular da iluminação fixa ainda não calculado.
 - Logs de diagnóstico ainda compilados.
 
+## Próximas correções
+
+- **Quadrados escuros (passada `[REVSUB]`):** a causa foi encontrada. A comparação do mapa de sombra das lâmpadas estava invertida, e elas escureciam toda a área iluminada. A correção está em teste no Switch e entra na próxima versão.
+- **Desempenho:** subir dos ~17–24 FPS atuais no navio, reduzindo o custo da troca entre as threads do jogo, das leituras de TLS e das alocações do driver NVK.
+
 ## Jogar (release pronta)
 
 1. Baixe `coldfear.nro` em [Releases](https://github.com/gerisson1996/COLD-FEAR-NX-PORT/releases).
