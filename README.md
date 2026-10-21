@@ -82,6 +82,14 @@ Uma por linha, `CHAVE=valor`; linhas com `#` são ignoradas.
 | `NV2A_SKIP_REVSUB=1` | esconde a passada que desenha os quadrados escuros |
 | `COLDFEAR_CPU_MHZ` / `COLDFEAR_GPU_MHZ` / `COLDFEAR_MEM_MHZ` | overclock opcional |
 
+## Apoie o projeto
+
+O port é grátis e o código é aberto. Se quiser ajudar no tempo de desenvolvimento e nos testes no Switch real, você pode doar pelo Ko-fi:
+
+[![Ko-fi](https://img.shields.io/badge/Ko--fi-apoiar-FF5E5B?logo=ko-fi&logoColor=white)](https://ko-fi.com/gerissoncassiano)
+
+Doação é opcional: ninguém precisa doar para jogar, e o projeto não inclui nem vende o jogo.
+
 ## Licenças e origem
 
 Veja `docs/PROVENANCE.md` para a origem dos componentes. O toolkit xboxrecomp mantém suas licenças em `xboxrecomp/LICENSE`, `xboxrecomp/NOTICE` e `xboxrecomp/LICENSES/`; o restante segue `LICENSE` e `NOTICE` na raiz. Não distribua os arquivos do jogo, a ISO ou o código gerado.
