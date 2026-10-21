@@ -4,7 +4,7 @@
 
 Port experimental por recompilación estática: el ejecutable x86 de Xbox se convierte en C y se compila para ARM64 con el toolkit [xboxrecomp](xboxrecomp/) y un renderizador Vulkan (NVK). No es emulación: el código del juego corre de forma nativa, y solo se reimplementa el hardware de Xbox (GPU NV2A, audio, kernel).
 
-Versión **0.0.1** — autor RECOMP-GUTO.
+Versión **0.0.2** — autor RECOMP-GUTO.
 
 **Este repositorio no contiene el juego.** Los archivos del disco, el XBE y el código C generado a partir de él no se distribuyen. Para compilar o jugar necesitas tu propia copia de Cold Fear (Xbox).
 
@@ -50,13 +50,11 @@ Jugable en una Switch real, desde el menú hasta el gameplay en el barco.
 
 Problemas conocidos:
 
-- Cuadrados oscuros de una pasada de sombra sustractiva en algunas zonas (`NV2A_SKIP_REVSUB=1` en `coldfear_env.txt` oculta esa pasada hasta que se corrija).
 - El brillo especular de la iluminación fija aún no se calcula.
 - Los logs de diagnóstico siguen compilados.
 
 ## Próximas correcciones
 
-- **Cuadrados oscuros (la pasada `[REVSUB]`):** la causa ya se encontró. La comparación del mapa de sombra de las lámparas estaba invertida, y oscurecían toda su zona iluminada. La corrección se está probando en la Switch y entra en la próxima versión.
 - **Rendimiento:** subir de los ~17–24 FPS actuales en el barco, reduciendo el costo del cambio entre los hilos del juego, de las lecturas de TLS y de las asignaciones del driver NVK.
 
 ## Jugar (release lista)
@@ -119,7 +117,7 @@ Una por línea, `CLAVE=valor`; las líneas que empiezan con `#` se ignoran.
 | --- | --- |
 | `COLDFEAR_LOG=0` | sin log |
 | `NV2A_BRIGHTNESS=n` | brillo inicial (0–10) si aún no existe `brightness.txt` |
-| `NV2A_SKIP_REVSUB=1` | oculta la pasada que dibuja los cuadrados oscuros |
+| `NV2A_SHADOW_BIAS=n` | tolerancia de la comparación de sombra de las lámparas (128 por defecto) |
 | `COLDFEAR_CPU_MHZ` / `COLDFEAR_GPU_MHZ` / `COLDFEAR_MEM_MHZ` | overclock opcional |
 
 ## Licencias y origen

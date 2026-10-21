@@ -270,26 +270,31 @@ static void tex_fetch(Out *o, int t, uint32_t mode, const Nv2aPshKey *k)
 
     if (mode == 2) {                                  /* PROJECT3D */
         if (kind == NV2A_TEX_SHADOW24 || kind == NV2A_TEX_SHADOW16) {
-            /* A shadow buffer: r/q compared with the depth stored at
-             * (s/q, t/q), in the depth texture's own units, by
-             * SET_SHADOW_DEPTH_FUNC as "r FUNC stored"; 1 = lit (the other
-             * order lit Cold Fear's flashlight inside out on the console;
-             * NV2A_SHADOW_SWAP=0 restores it). r is moved towards lit by a
-             * bias -- NV2A_SHADOW_BIAS, in 16-bit depth units, default 8:
+            /* A shadow buffer: the depth stored at (s/q, t/q) compared
+             * with r/q, in the depth texture's own units, by
+             * SET_SHADOW_DEPTH_FUNC as "stored FUNC r"; 1 = lit. Cold Fear
+             * proves the order: its lamp passes use GREATER and subtract
+             * light where the result is 0 (a combiner mux on it), so 0 must
+             * be the occluded side. "r FUNC stored" darkened each lamp's
+             * whole lit rectangle -- the dark squares on the ship.
+             * NV2A_SHADOW_SWAP=1 restores that order. r is moved towards lit by a
+             * bias -- NV2A_SHADOW_BIAS, in 16-bit depth units, default 128 (tuned on the console):
              * the buffer is stored at 24 bits here and interpolated
              * differently from the r the program computes, and comparing
              * the two exactly made lit surfaces shadow themselves in a
              * flicker. */
             static const char *const ops[8] = { "", "<", "==", "<=", ">", "!=", ">=", "" };
-            static int swap = -1;
+            static int swap = -1, pcf = 1;
             static double bias16 = -1.0;
             uint32_t fn = (k->tex_kind >> 16) & 7;
             double bias;
             if (swap < 0) {
                 const char *e = getenv("NV2A_SHADOW_SWAP");
-                swap = !(e && *e == '0');
+                swap = e && *e == '1';
                 e = getenv("NV2A_SHADOW_BIAS");
-                bias16 = e ? atof(e) : 8.0;
+                bias16 = e ? atof(e) : 128.0;
+                e = getenv("NV2A_SHADOW_PCF");
+                pcf = !(e && *e == '0');
             }
             bias = kind == NV2A_TEX_SHADOW16 ? bias16 : bias16 * 256.0;
             emit(o, "    float q%d = abs(vT%d.w) > 1e-8 ? vT%d.w : 1.0;\n", t, t, t);
@@ -307,18 +312,48 @@ static void tex_fetch(Out *o, int t, uint32_t mode, const Nv2aPshKey *k)
                 return;
             }
             emit(o, "    vec2 stc%d = vT%d.xy / q%d * u_tscale[%d];\n", t, t, t, t);
-            emit(o, "    float dz%d = texture(t%d, stc%d).r * %s;\n",
-                 t, t, t, kind == NV2A_TEX_SHADOW16 ? "65535.0" : "16777215.0");
-            if (swap) {
-                /* r FUNC stored: LESS/LEQUAL light the nearer side, so r is
-                 * pulled nearer; GREATER/GEQUAL the other way. */
-                double b = (fn == 1 || fn == 3) ? -bias : (fn == 4 || fn == 6) ? bias : 0.0;
-                emit(o, "    float zr%d = vT%d.z / q%d + (%.1f);\n", t, t, t, b);
-                emit(o, "    vec4 T%d = vec4((zr%d %s dz%d) ? 1.0 : 0.0);\n", t, t, ops[fn], t);
-            } else {
+            {
+                /* r FUNC stored (swap) or stored FUNC r. The bias pulls r
+                 * towards the lit side: nearer for LESS/LEQUAL in the first
+                 * order, the other way round otherwise. */
+                const char *sc = kind == NV2A_TEX_SHADOW16 ? "65535.0" : "16777215.0";
                 double b = (fn == 1 || fn == 3) ? bias : (fn == 4 || fn == 6) ? -bias : 0.0;
+                char cmp[96];
+                if (swap)
+                    b = -b;
                 emit(o, "    float zr%d = vT%d.z / q%d + (%.1f);\n", t, t, t, b);
-                emit(o, "    vec4 T%d = vec4((dz%d %s zr%d) ? 1.0 : 0.0);\n", t, t, ops[fn], t);
+                if (swap)
+                    snprintf(cmp, sizeof cmp, "(zr%d %s (texture(t%d, %%s).r * %s) ? 1.0 : 0.0)",
+                             t, ops[fn], t, sc);
+                else
+                    snprintf(cmp, sizeof cmp, "((texture(t%d, %%s).r * %s) %s zr%d ? 1.0 : 0.0)",
+                             t, sc, ops[fn], t);
+                if (pcf) {
+                    /* The four nearest texels compared, then blended
+                     * bilinearly -- the NV2A filters shadow buffers this
+                     * way under a LINEAR filter. One nearest texel turned
+                     * every texel the bias could not cover into a square of
+                     * shadow. NV2A_SHADOW_PCF=0: one texel. */
+                    char tap[64];
+                    int j;
+                    emit(o, "    vec2 tsz%d = vec2(textureSize(t%d, 0));\n", t, t);
+                    emit(o, "    vec2 pc%d = stc%d * tsz%d - 0.5;\n", t, t, t);
+                    emit(o, "    vec2 fl%d = floor(pc%d), fr%d = pc%d - fl%d;\n", t, t, t, t, t);
+                    for (j = 0; j < 4; j++) {
+                        snprintf(tap, sizeof tap, "(fl%d + vec2(%d.5, %d.5)) / tsz%d", t, j & 1, j >> 1, t);
+                        emit(o, "    float s%d_%d = ", t, j);
+                        emit(o, cmp, tap);
+                        emit(o, ";\n");
+                    }
+                    emit(o, "    vec4 T%d = vec4(mix(mix(s%d_0, s%d_1, fr%d.x), mix(s%d_2, s%d_3, fr%d.x), fr%d.y));\n",
+                         t, t, t, t, t, t, t, t);
+                } else {
+                    char tap[16];
+                    snprintf(tap, sizeof tap, "stc%d", t);
+                    emit(o, "    vec4 T%d = vec4(", t);
+                    emit(o, cmp, tap);
+                    emit(o, ");\n");
+                }
             }
             /* Outside the buffer's area the point is lit, as with the
              * hardware's border at maximum depth. The wrap mode stretched

@@ -73,7 +73,7 @@ else()
         nx_generate_nacp(OUTPUT "${COLDFEAR_NACP}"
             NAME "Cold Fear Xbox Port"
             AUTHOR "RECOMP-GUTO"
-            VERSION "0.0.1")
+            VERSION "0.0.2")
         # Homebrew menu icon: the 256x256 JPEG made from the v2 cover.
         nx_create_nro(${PROJECT_NAME} NACP "${COLDFEAR_NACP}"
             ICON "${CMAKE_CURRENT_SOURCE_DIR}/artwork/coldfear-icon-256.jpg")
