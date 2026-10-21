@@ -1,7 +1,9 @@
-# Initial hardware diagnostics. No clock overrides.
-RECOMP_QUIET=0
+# Cold Fear Xbox Port settings. KEY=value per line; # starts a comment.
 RECOMP_VBLANK=1
 RECOMP_AUDIO=1
-RECOMP_WATCHDOG_SECS=60
-RECOMP_WATCHDOG_KEEP=1
 COLDFEAR_LOG=1
+# Render resolution: 1.5 = 960x720 (sharper on the 720p screen), 2 = 1280x960.
+#RECOMP_GL_SCALE=1.5
+# Optional overclock (more heat and battery): remove the # to turn it on.
+#COLDFEAR_CPU_MHZ=1785
+#COLDFEAR_MEM_MHZ=1600

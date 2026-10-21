@@ -2141,6 +2141,23 @@ static void bridge_KeSetEvent(void)
 
 
 /* ── KeWaitForSingleObject (ordinal 159) ─────────────────── */
+/* The main thread's waits, by guest caller (xbox_main_wait_report). */
+static struct { uint32_t r1, r2, token, n; uint64_t us; } s_mw[16];
+
+static void main_wait_note(uint32_t token, uint32_t r1, uint32_t r2, uint64_t us)
+{
+    int k;
+    for (k = 0; k < 16; k++)
+        if (!s_mw[k].n || (s_mw[k].r1 == r1 && s_mw[k].r2 == r2)) {
+            s_mw[k].r1 = r1;
+            s_mw[k].r2 = r2;
+            s_mw[k].token = token;
+            s_mw[k].n++;
+            s_mw[k].us += us;
+            break;
+        }
+}
+
 static void bridge_KeWaitForSingleObject(void)
 {
     uint32_t object = STACK_ARG(0);
@@ -2153,6 +2170,22 @@ static void bridge_KeWaitForSingleObject(void)
     if (kdisp_is_guest(object)) {
         HANDLE none = NULL;
         (void)wait_reason; (void)wait_mode; (void)alertable;
+        if (t_gil_main) {
+            /* The profiler found the main thread here about half the time:
+             * name the guest code that waits (ebp chain, as below). */
+            uint32_t r1 = g_ebp ? BRIDGE_MEM32(g_ebp + 4) : 0;
+            uint32_t f1 = g_ebp ? BRIDGE_MEM32(g_ebp) : 0;
+            uint32_t r2 = f1 ? BRIDGE_MEM32(f1 + 4) : 0;
+            LARGE_INTEGER a, b, f;
+            QueryPerformanceCounter(&a);
+            g_eax = (uint32_t)kdisp_wait(1, &object, &none, 0,
+                                         kdisp_timeout_ms(timeout_ptr));
+            QueryPerformanceCounter(&b);
+            QueryPerformanceFrequency(&f);
+            main_wait_note(object, r1, r2,
+                           (uint64_t)((b.QuadPart - a.QuadPart) * 1000000.0 / f.QuadPart));
+            return;
+        }
         g_eax = (uint32_t)kdisp_wait(1, &object, &none, 0,
                                      kdisp_timeout_ms(timeout_ptr));
         return;
@@ -2226,8 +2259,6 @@ static void bridge_NtPulseEvent(void)
  */
 static HANDLE bridge_resolve_handle(uint32_t token);
 
-static struct { uint32_t r1, r2, token, n; uint64_t us; } s_mw[16];
-
 static void bridge_NtWaitForSingleObjectEx(void)
 {
     HANDLE   handle      = bridge_resolve_handle(STACK_ARG(0));
@@ -2257,15 +2288,9 @@ static void bridge_NtWaitForSingleObjectEx(void)
             XBOX_TO_NATIVE(timeout_ptr));
         QueryPerformanceCounter(&b);
         QueryPerformanceFrequency(&f);
-        for (k = 0; k < 16; k++)
-            if (!s_mw[k].n || (s_mw[k].r1 == r1 && s_mw[k].r2 == r2)) {
-                s_mw[k].r1 = r1;
-                s_mw[k].r2 = r2;
-                s_mw[k].token = STACK_ARG(0);
-                s_mw[k].n++;
-                s_mw[k].us += (uint64_t)((b.QuadPart - a.QuadPart) * 1000000.0 / f.QuadPart);
-                break;
-            }
+        (void)k;
+        main_wait_note(STACK_ARG(0), r1, r2,
+                       (uint64_t)((b.QuadPart - a.QuadPart) * 1000000.0 / f.QuadPart));
         return;
     }
     g_eax = (uint32_t)xbox_NtWaitForSingleObjectEx(

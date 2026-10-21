@@ -482,6 +482,11 @@ void recomp_trace_esp(const char *name, const char *tag);
 #if defined(RECOMP_FOLD_TILED) && RECOMP_FOLD_TILED
 static inline uint32_t recomp_fold_tiled(uint32_t a)
 {
+    /* Base RAM first: nearly every access lands below 64 MB, and testing
+     * that alone keeps the common path to one compare (the two range checks
+     * below ran on every load and store the game makes). */
+    if (__builtin_expect(a < 0x04000000u, 1))
+        return a;
 #if defined(RECOMP_FOLD_MIRRORS) && RECOMP_FOLD_MIRRORS
     if (a - 0x04000000u < 0x70000000u)
         return a & 0x03FFFFFFu;

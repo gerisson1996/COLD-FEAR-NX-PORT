@@ -92,8 +92,6 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Falha ao ligar o log de numero de entidade.' }
     & $Python 'tools/fix_gamma_ramp.py'
     if ($LASTEXITCODE -ne 0) { throw 'Falha ao ligar a rampa de gama.' }
-    & $Python 'tools/fix_prof_entry.py'
-    if ($LASTEXITCODE -ne 0) { throw 'Falha ao marcar as entradas para o profiler.' }
     & $Python 'tools/instrument_boot.py'
     if ($LASTEXITCODE -ne 0) { throw 'Falha ao instrumentar o diagnostico de boot.' }
     Pop-Location

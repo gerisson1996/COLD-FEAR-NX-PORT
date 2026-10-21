@@ -495,14 +495,19 @@ static inline uint32_t nv2a_clean_va(uint32_t va)
     return va;
 }
 
+/* One address can have surfaces of several widths (surf_get); a lookup by
+ * address alone takes the one drawn into last. */
 static VkSurf *surf_find(uint32_t va)
 {
+    VkSurf *best = NULL;
     int i;
     va = nv2a_clean_va(va);
     for (i = 0; i < VK_MAX_SURF; i++)
-        if (s_surf[i].image && s_surf[i].va == va)
-            return &s_surf[i];
-    return NULL;
+        if (s_surf[i].image && s_surf[i].va == va
+            && (!best || s_surf[i].used > best->used
+                || (s_surf[i].used == best->used && s_surf[i].gen > best->gen)))
+            best = &s_surf[i];
+    return best;
 }
 
 static void clear_image_color(VkImage img, float r, float g, float b, float a)
@@ -517,8 +522,19 @@ static void clear_image_color(VkImage img, float r, float g, float b, float a)
 static VkSurf *surf_get(uint32_t va, uint32_t w, uint32_t h, uint32_t aa_sx, uint32_t aa_sy)
 {
     va = nv2a_clean_va(va);
-    VkSurf *s = surf_find(va), *victim = NULL;
+    VkSurf *s = NULL, *victim = NULL;
     int i;
+
+    /* Keyed by address and width. Cold Fear draws its lamps' shadow buffers
+     * at one address in 1024, 512 and 256 squared, several times a frame;
+     * keyed by address alone, each change of size destroyed the surface and
+     * made a new one -- an eighth of the pushbuffer thread went to creating
+     * and freeing images. */
+    for (i = 0; i < VK_MAX_SURF; i++)
+        if (s_surf[i].image && s_surf[i].va == va && s_surf[i].w == w) {
+            s = &s_surf[i];
+            break;
+        }
 
     /* h is the surface clip, not the allocation (NFSU2's split screen clips
      * the back buffer to each player's half): keep the surface while the
@@ -784,6 +800,24 @@ static uint32_t swizzle_index(uint32_t u, uint32_t v, uint32_t w, uint32_t h)
     return out;
 }
 
+/* The swizzled index splits into an x part and a y part with disjoint bits,
+ * so a texture's decode looks both up instead of interleaving bits per
+ * texel: the per-texel loop above was an eighth of the pushbuffer thread
+ * whenever textures streamed in. Up to 4096 x 4096. */
+static uint32_t s_swz_x[4096], s_swz_y[4096];
+
+static int swizzle_tables(uint32_t w, uint32_t h)
+{
+    uint32_t i;
+    if (w > 4096 || h > 4096)
+        return 0;
+    for (i = 0; i < w; i++)
+        s_swz_x[i] = swizzle_index(i, 0, w, h);
+    for (i = 0; i < h; i++)
+        s_swz_y[i] = swizzle_index(0, i, w, h);
+    return 1;
+}
+
 static int decode_indexed(uint32_t va, uint32_t w, uint32_t h, uint32_t *out)
 {
     va = nv2a_clean_va(va);
@@ -792,15 +826,18 @@ static int decode_indexed(uint32_t va, uint32_t w, uint32_t h, uint32_t *out)
     uint32_t entries = 256u >> ((s_palette_reg >> 2) & 3);
     const uint8_t *idx = mem + va;
     uint32_t x, y;
-    if (!(s_palette_reg & ~0x3Fu))
+    uint32_t pal[256];
+    if (!(s_palette_reg & ~0x3Fu) || !swizzle_tables(w, h))
         return 0;
-    for (y = 0; y < h; y++)
-        for (x = 0; x < w; x++) {
-            uint32_t i = idx[swizzle_index(x, y, w, h)], c;
-            if (i >= entries) i = 0;
-            memcpy(&c, mem + s_palette_va + i * 4, 4);
-            out[y * w + x] = c;
-        }
+    memcpy(pal, mem + s_palette_va, entries * 4);
+    for (x = entries; x < 256; x++)
+        pal[x] = pal[0];
+    for (y = 0; y < h; y++) {
+        const uint32_t sy = s_swz_y[y];
+        uint32_t *row = out + (size_t)y * w;
+        for (x = 0; x < w; x++)
+            row[x] = pal[idx[s_swz_x[x] | sy]];
+    }
     return 1;
 }
 
@@ -906,9 +943,14 @@ static void tex_fill(VkTex *t, uint32_t va, uint32_t layer)
     if (color == 0x06 || color == 0x07) {
         const uint32_t *src = (const uint32_t *)(mem + va);
         uint32_t x, y, fill = color == 0x07 ? 0xFF000000u : 0;
-        for (y = 0; y < h; y++)
+        if (!swizzle_tables(w, h))
+            return;
+        for (y = 0; y < h; y++) {
+            const uint32_t sy = s_swz_y[y];
+            uint32_t *row = s_decode + (size_t)y * w;
             for (x = 0; x < w; x++)
-                s_decode[(size_t)y * w + x] = src[swizzle_index(x, y, w, h)] | fill;
+                row[x] = src[s_swz_x[x] | sy] | fill;
+        }
     } else {
         int ok;
         memset(&nt, 0, sizeof nt);
@@ -3169,7 +3211,12 @@ static int upload_vertices(const Nv2aRawBatch *b)
         }
     }
     p_vertex_input(s_cb, NV2A_RAW_ATTRS, bind, NV2A_RAW_ATTRS, attr);
-    vkCmdBindVertexBuffers(s_cb, 0, NV2A_RAW_ATTRS, bufs, offs);
+    /* Eight at a time: Mesa's CmdBindVertexBuffers2 keeps up to 8 bindings
+     * on the stack and mallocs (then frees) a larger list -- with 16 per
+     * draw, malloc was 7% of the pushbuffer thread. */
+    for (a = 0; a < NV2A_RAW_ATTRS; a += 8)
+        vkCmdBindVertexBuffers(s_cb, a, NV2A_RAW_ATTRS - a < 8 ? NV2A_RAW_ATTRS - a : 8,
+                               bufs + a, offs + a);
     return 1;
 }
 
@@ -4559,7 +4606,43 @@ static void vk_flip(uint32_t completed_color_va)
             rg.imageExtent.width = w;
             rg.imageExtent.height = h;
             rg.imageExtent.depth = 1;
-            vkCmdCopyBufferToImage(s_cb, s_f->ring, vs->image, VK_IMAGE_LAYOUT_GENERAL, 1, &rg);
+            if (vs->pw == w && vs->ph == h) {
+                vkCmdCopyBufferToImage(s_cb, s_f->ring, vs->image, VK_IMAGE_LAYOUT_GENERAL, 1, &rg);
+            } else {
+                /* A scaled surface (RECOMP_GL_SCALE): the 640x480 frame goes
+                 * through an image of its own and is stretched over the
+                 * whole surface. Copied straight in, it filled only the
+                 * top-left 640x480 of the stored pixels -- the movies
+                 * stopped being full screen. */
+                static VkImage ov_img;
+                static VkImageView ov_view;
+                static VkDeviceMemory ov_mem;
+                VkImageBlit bl;
+                VkMemoryBarrier mb = { VK_STRUCTURE_TYPE_MEMORY_BARRIER };
+                if (!ov_img && !make_image(w, h, VK_FORMAT_B8G8R8A8_UNORM,
+                                           VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+                                           VK_IMAGE_ASPECT_COLOR_BIT, &ov_img, &ov_view, &ov_mem))
+                    ov_img = VK_NULL_HANDLE;
+                if (ov_img) {
+                    vkCmdCopyBufferToImage(s_cb, s_f->ring, ov_img, VK_IMAGE_LAYOUT_GENERAL, 1, &rg);
+                    mb.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+                    mb.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
+                    vkCmdPipelineBarrier(s_cb, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                                         0, 1, &mb, 0, NULL, 0, NULL);
+                    memset(&bl, 0, sizeof bl);
+                    bl.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+                    bl.srcSubresource.layerCount = 1;
+                    bl.srcOffsets[1].x = (int32_t)w;
+                    bl.srcOffsets[1].y = (int32_t)h;
+                    bl.srcOffsets[1].z = 1;
+                    bl.dstSubresource = bl.srcSubresource;
+                    bl.dstOffsets[1].x = (int32_t)to_stored(w, vs->pw, vs->w);
+                    bl.dstOffsets[1].y = (int32_t)to_stored(h, vs->ph, vs->h);
+                    bl.dstOffsets[1].z = 1;
+                    vkCmdBlitImage(s_cb, ov_img, VK_IMAGE_LAYOUT_GENERAL, vs->image,
+                                   VK_IMAGE_LAYOUT_GENERAL, 1, &bl, VK_FILTER_LINEAR);
+                }
+            }
             vs->dirty = 1;
             s_last = vs;
 
