@@ -466,6 +466,7 @@ int nv2a_gl_psh(const Nv2aPshKey *k, char *buf, size_t cap)
             "    vec4 u_fc0; vec4 u_fc1;\n"
             "    vec4 u_fogcolor;\n"
             "    int u_alpha_func; float u_alpha_ref;\n"
+            "    float u_out_scale;           /* lamp-shadow strength (mod menu) */\n"
             "};\n"
             "layout(location = 0) out vec4 fragColor;\n"
             "void main() {\n");
@@ -524,7 +525,9 @@ int nv2a_gl_psh(const Nv2aPshKey *k, char *buf, size_t cap)
         "    else if (u_alpha_func == 0x204) pass = ar >  u_alpha_ref;\n"
         "    else if (u_alpha_func == 0x205) pass = abs(ar - u_alpha_ref) >= 0.5;\n"
         "    else if (u_alpha_func == 0x206) pass = ar >= (u_alpha_ref - 0.5);\n"
-        "    if (!pass) discard;\n"
-        "}\n");
+        "    if (!pass) discard;\n");
+    if (nv2a_shader_vk)
+        emit(&o, "    fragColor.rgb *= u_out_scale;\n");
+    emit(&o, "}\n");
     return o.overflow ? -1 : (int)(cap - o.left);
 }

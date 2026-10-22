@@ -46,6 +46,7 @@ Playable on real Switch hardware, from the menu to gameplay on the ship.
 - Video: Vulkan/NVK with the NV2A's vertex and pixel shaders translated to GLSL, fog, stencil, lamp shadow maps, volume textures, polygon offset, the game's gamma ramp.
 - NV2A fixed-function lighting (per-vertex lights, texture coordinate generation, texture matrices) in the vertex shader.
 - In-game brightness: hold **−** and press the D-pad **up/down** (0 to 10, saved to the SD card).
+- **In-game mod menu**: hold **−** and press **R3**. It has brightness, resolution, an FPS counter, lamp shadows (off, 25%, 50%, 75% or full), fog and overclock. Choices are saved in `mods.txt`.
 - Performance: about 22–30 FPS on the ship without overclocking (the optional overclock adds ~5).
 - Internal resolution 960×720 by default (`RECOMP_GL_SCALE`), sharper on the 720p screen.
 

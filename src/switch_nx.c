@@ -389,6 +389,23 @@ static void load_env(void)
     FILE *f = fopen(COLDFEAR_SWITCH_DIR "/coldfear_env.txt", "r");
     char line[1024];
 
+    /* mods.txt, written by the in-game mod menu: first, so the port's
+     * defaults below do not replace it and coldfear_env.txt can. */
+    {
+        FILE *m = fopen(COLDFEAR_SWITCH_DIR "/mods.txt", "r");
+        while (m && fgets(line, sizeof line, m)) {
+            char *eq, *end = line + strlen(line);
+            while (end > line && (end[-1] == '\n' || end[-1] == '\r' || end[-1] == ' '))
+                *--end = 0;
+            if (!line[0] || line[0] == '#' || !(eq = strchr(line, '=')) || eq == line)
+                continue;
+            *eq = 0;
+            setenv(line, eq + 1, 1);
+            printf("[switch] mods %s=%s\n", line, eq + 1);
+        }
+        if (m)
+            fclose(m);
+    }
     /* The renderer's caches and brightness.txt (nv2a_vk cache_dir); the
      * toolkit's default is another port's folder. */
     setenv("RECOMP_CACHE_DIR", COLDFEAR_SWITCH_DIR "/", 0);
@@ -1040,53 +1057,117 @@ static void clk_keeper(void *arg)
     }
 }
 
-static void clk_apply(void)
+/* Clock service and the keeper thread, once (clkrst on 8.0.0+, else pcv). */
+static int clk_up(void)
 {
-    int i, any = 0;
-    for (i = 0; i < 3; i++) {
-        const char *e = getenv(s_clk[i].env);
-        double mhz = e ? atof(e) : (double)s_clk[i].def_mhz;
-        s_clk[i].want_hz = mhz > 0 ? (u32)(mhz * 1e6 + 0.5) : 0;
-        if (s_clk[i].want_hz > s_clk[i].cap_hz)
-            s_clk[i].want_hz = s_clk[i].cap_hz;
-        any |= s_clk[i].want_hz != 0;
-    }
-    if (!any)
-        return;
+    if (s_clk_rst >= 0)
+        return 1;
     if (hosversionAtLeast(8, 0, 0) && R_SUCCEEDED(clkrstInitialize()))
         s_clk_rst = 1;
     else if (R_SUCCEEDED(pcvInitialize()))
         s_clk_rst = 0;
     else {
         printf("[clock] neither clkrst nor pcv is available: clocks unchanged\n");
-        return;
-    }
-    for (i = 0; i < 3; i++) {
-        u32 hz = 0, now = 0;
-        Result rc;
-        if (!s_clk[i].want_hz)
-            continue;
-        if (s_clk_rst) {
-            if (R_FAILED(rc = clkrstOpenSession(&s_clk[i].s, s_clk[i].id, 3))) {
-                printf("[clock] %s: no clkrst session (0x%X)\n", s_clk[i].name, rc);
-                continue;
-            }
-            s_clk[i].open = 1;
-        }
-        clk_get(i, &s_clk[i].old_hz);
-        hz = clk_pick(i, s_clk[i].want_hz);
-        rc = clk_set(i, hz);
-        clk_get(i, &now);
-        if (R_SUCCEEDED(rc))
-            s_clk[i].set_hz = now ? now : hz;
-        printf("[clock] %s %u -> %u MHz (asked %u)%s\n", s_clk[i].name,
-               s_clk[i].old_hz / 1000000u, now / 1000000u, s_clk[i].want_hz / 1000000u,
-               R_FAILED(rc) ? " -- refused" : "");
+        return 0;
     }
     atexit(clk_restore);
     if (R_SUCCEEDED(threadCreate(&s_clk_thread, clk_keeper, NULL, NULL, 0x4000, 0x3F, -2))
         && R_SUCCEEDED(threadStart(&s_clk_thread)))
         s_clk_thread_up = 1;
+    return 1;
+}
+
+/* Run clock i at want_hz (the closest listed rate not above it), or back at
+ * the system's own rate for 0. At boot and from the mod menu. */
+static void clk_want(int i, u32 want_hz)
+{
+    u32 hz = 0, now = 0;
+    Result rc;
+    if (want_hz > s_clk[i].cap_hz)
+        want_hz = s_clk[i].cap_hz;
+    if (!clk_up())
+        return;
+    if (s_clk_rst && !s_clk[i].open) {
+        if (R_FAILED(rc = clkrstOpenSession(&s_clk[i].s, s_clk[i].id, 3))) {
+            printf("[clock] %s: no clkrst session (0x%X)\n", s_clk[i].name, rc);
+            return;
+        }
+        s_clk[i].open = 1;
+    }
+    if (!s_clk[i].old_hz)
+        clk_get(i, &s_clk[i].old_hz);
+    s_clk[i].want_hz = want_hz;
+    if (!want_hz) {
+        /* Back to the system: its own rate, then the session closed. Kept
+         * open at the stock rate, the system pulled the clock back every
+         * second once the menu turned the overclock on again. */
+        s_clk[i].set_hz = 0;                 /* the keeper leaves it alone */
+        if (s_clk[i].old_hz)
+            clk_set(i, s_clk[i].old_hz);
+        if (s_clk_rst && s_clk[i].open) {
+            clkrstCloseSession(&s_clk[i].s);
+            s_clk[i].open = 0;
+        }
+        printf("[clock] %s back to %u MHz\n", s_clk[i].name, s_clk[i].old_hz / 1000000u);
+        return;
+    }
+    hz = clk_pick(i, want_hz);
+    rc = clk_set(i, hz);
+    clk_get(i, &now);
+    if (R_SUCCEEDED(rc))
+        s_clk[i].set_hz = now ? now : hz;
+    printf("[clock] %s %u -> %u MHz (asked %u)%s\n", s_clk[i].name,
+           s_clk[i].old_hz / 1000000u, now / 1000000u, want_hz / 1000000u,
+           R_FAILED(rc) ? " -- refused" : "");
+}
+
+/* COLDFEAR_OC=1 (the mod menu's switch): CPU 1785 / memory 1600 unless
+ * COLDFEAR_CPU_MHZ / COLDFEAR_MEM_MHZ say otherwise. */
+static int s_oc_on;
+
+static void clk_apply(void)
+{
+    int i;
+    const char *oc = getenv("COLDFEAR_OC");
+    s_oc_on = oc && *oc == '1';
+    for (i = 0; i < 3; i++) {
+        const char *e = getenv(s_clk[i].env);
+        double mhz = e ? atof(e) : (double)s_clk[i].def_mhz;
+        if (!e && s_oc_on && i != 1)
+            mhz = s_clk[i].cap_hz / 1e6;
+        if (mhz > 0)
+            clk_want(i, (u32)(mhz * 1e6 + 0.5));
+    }
+}
+
+/* ── Mod menu items of the port (nv2a_vk.c draws and drives the menu) ── */
+void nv2a_menu_add(const char *label, const char *key, int min, int max, int (*get)(void),
+                   void (*set)(int), const char *const *names, const char *const *values,
+                   int restart);
+
+static int s_res = 1;                       /* 0 1x, 1 1.5x, 2 2x */
+static int menu_res_get(void) { return s_res; }
+static void menu_res_set(int v) { s_res = v; }
+static int menu_oc_get(void) { return s_oc_on; }
+static void menu_oc_set(int v)
+{
+    s_oc_on = v;
+    clk_want(0, v ? s_clk[0].cap_hz : 0);
+    clk_want(2, v ? s_clk[2].cap_hz : 0);
+}
+
+static void menu_register(void)
+{
+    static const char *const res_names[] = { "1X", "1.5X", "2X" };
+    static const char *const res_values[] = { "1", "1.5", "2" };
+    static const char *const yesno[] = { "NAO", "SIM" };
+    const char *e = getenv("RECOMP_GL_SCALE");
+    double k = e ? atof(e) : 1.5;
+    s_res = k < 1.25 ? 0 : k < 1.75 ? 1 : 2;
+    /* The resolution first: the renderer puts it right after brightness. */
+    nv2a_menu_add("RESOLUCAO", "RECOMP_GL_SCALE", 0, 2, menu_res_get, menu_res_set,
+                  res_names, res_values, 1);
+    nv2a_menu_add("OVERCLOCK", "COLDFEAR_OC", 0, 1, menu_oc_get, menu_oc_set, yesno, NULL, 0);
 }
 
 void switch_boot(void)
@@ -1123,6 +1204,7 @@ void switch_boot(void)
                (unsigned long)(total >> 20), (unsigned long)(used >> 20));
     }
     clk_apply();
+    menu_register();
     loader_start();
     prof_start();
 }

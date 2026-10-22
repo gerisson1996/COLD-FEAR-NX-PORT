@@ -279,6 +279,8 @@ typedef struct {
     uint64_t wseq;             /* s_depth_seq at the last draw or clear into it */
 } VkDepthBuf;
 static uint64_t s_depth_seq;
+/* Mod menu switches (menu_init sets them from mods.txt; -1 = not read yet). */
+static int s_mod_fps = -1, s_mod_fog = -1, s_mod_shadows = -1;
 
 /* Depth-only (shadow buffer) passes per 10 s, for [VKSTAT]. */
 static uint32_t s_zonly_passes, s_zonly_noclear;
@@ -3258,7 +3260,8 @@ typedef struct {
     float fog[4];
     int32_t afunc;
     float aref;
-    float pad[2];
+    float out_scale;             /* gl_psh u_out_scale */
+    float pad;
 } FsBlock;
 
 /* ── Instancing ───────────────────────────────────────────────────────
@@ -3600,7 +3603,7 @@ static void vk_draw_raw(const Nv2aRawBatch *b)
                 }
             }
         }
-        if (srs && key.blend && key.beq == 0x800B)
+        if ((srs || s_mod_shadows == 0) && key.blend && key.beq == 0x800B)
             return;
         if (sst && d && r[0x32C / 4] && r[0x358 / 4])
             return;
@@ -3837,7 +3840,7 @@ static void vk_draw_raw(const Nv2aRawBatch *b)
                     const char *e = getenv("NV2A_FOG");
                     fog_on = !(e && *e == '0');
                 }
-                if (!fog_on)
+                if (!fog_on || s_mod_fog == 0)
                     vb->fog[3] = 0.0f;
                 for (k = 0; k < nseen && (seen[k][0] != fm || seen[k][1] != r[0x9C0 / 4]
                                           || seen[k][2] != r[0x2A4 / 4]); k++) ;
@@ -3888,6 +3891,10 @@ static void vk_draw_raw(const Nv2aRawBatch *b)
             if (af < 0x200 || af > 0x207) af = 0x207;
             fb->afunc = r[0x300 / 4] ? (int32_t)af : 0x207;
             fb->aref = (float)(r[0x340 / 4] & 0xFF);
+            /* Mod menu, lamp shadows SUAVE: the passes that subtract the
+             * lamps' shadows (REVERSE_SUBTRACT) take 25 / 50 / 75%. */
+            fb->out_scale = s_mod_shadows >= 1 && s_mod_shadows <= 3 && r[0x304 / 4]
+                            && r[0x350 / 4] == 0x800B ? s_mod_shadows * 0.25f : 1.0f;
             ub[1].buffer = s_f->ring;
             ub[1].offset = fat;
             ub[1].range = sizeof(FsBlock);
@@ -4148,6 +4155,17 @@ static int s_gamma_broken;
  * from brightness.txt beside the caches, else NV2A_BRIGHTNESS; changed in
  * game with nv2a_vk_brightness_step (Minus + D-pad up/down) and saved. */
 static volatile int s_bright = -1;
+/* Monotonic nanoseconds, for the on-screen overlays' timing. */
+static uint64_t ov_now_ns(void)
+{
+#if defined(__SWITCH__)
+    return armTicksToNs(armGetSystemTick());
+#else
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return (uint64_t)ts.tv_sec * 1000000000ull + (uint64_t)ts.tv_nsec;
+#endif
+}
 static volatile uint64_t s_bright_shown;  /* system tick of the last press: shows the panel */
 
 static int bright_level(void)
@@ -4176,7 +4194,7 @@ void nv2a_vk_brightness_step(int d)
     FILE *f;
     int v = bright_level() + d;
     v = v < 0 ? 0 : v > 10 ? 10 : v;
-    s_bright_shown = armGetSystemTick();
+    s_bright_shown = ov_now_ns();
     if (v == s_bright)
         return;
     s_bright = v;
@@ -4311,90 +4329,313 @@ static int gamma_init(void)
 }
 
 /* The image to present from: the surface itself, or its gamma-mapped copy. */
-/* The brightness panel: "BRILHO", the level and a bar of ten segments,
- * drawn over the bottom of the presented image for 2.5 s after each
- * Minus + D-pad press. Built on the CPU (5x7 font, one font pixel per
- * unit, a unit is 2-4 screen pixels) and copied into the swapchain image. */
-static const uint8_t *panel_glyph(char c)
+/* ── On-screen overlays: brightness panel, mod menu, FPS counter ─────
+ *
+ * Drawn on the CPU in "units" (one font pixel; a unit is 2-4 screen pixels
+ * by the swapchain's height) into the frame ring and copied into the
+ * swapchain image after the frame's blit. 5x7 font in nv2a_menu.h. */
+#include "nv2a_menu.h"
+
+typedef struct {
+    uint32_t *px;
+    uint32_t cw, ch, u, pw, ph;
+    VkDeviceSize at;
+} Ov;
+
+static uint32_t ov_rgb(uint32_t r, uint32_t g, uint32_t b)
 {
-    static const char keys[] = "BRILHO0123456789/";
-    static const uint8_t g[][7] = {
-        { 0x1E, 0x11, 0x11, 0x1E, 0x11, 0x11, 0x1E }, { 0x1E, 0x11, 0x11, 0x1E, 0x14, 0x12, 0x11 },
-        { 0x0E, 0x04, 0x04, 0x04, 0x04, 0x04, 0x0E }, { 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x1F },
-        { 0x11, 0x11, 0x11, 0x1F, 0x11, 0x11, 0x11 }, { 0x0E, 0x11, 0x11, 0x11, 0x11, 0x11, 0x0E },
-        { 0x0E, 0x11, 0x13, 0x15, 0x19, 0x11, 0x0E }, { 0x04, 0x0C, 0x04, 0x04, 0x04, 0x04, 0x0E },
-        { 0x0E, 0x11, 0x01, 0x02, 0x04, 0x08, 0x1F }, { 0x1E, 0x01, 0x01, 0x0E, 0x01, 0x01, 0x1E },
-        { 0x02, 0x06, 0x0A, 0x12, 0x1F, 0x02, 0x02 }, { 0x1F, 0x10, 0x1E, 0x01, 0x01, 0x11, 0x0E },
-        { 0x06, 0x08, 0x10, 0x1E, 0x11, 0x11, 0x0E }, { 0x1F, 0x01, 0x02, 0x04, 0x08, 0x08, 0x08 },
-        { 0x0E, 0x11, 0x11, 0x0E, 0x11, 0x11, 0x0E }, { 0x0E, 0x11, 0x11, 0x0F, 0x01, 0x02, 0x0C },
-        { 0x01, 0x02, 0x02, 0x04, 0x08, 0x08, 0x10 },
-    };
-    const char *p = strchr(keys, c);
-    return c && p ? g[p - keys] : NULL;
+    return 0xFF000000u | (s_sc_format == VK_FORMAT_B8G8R8A8_UNORM
+                          ? (r << 16 | g << 8 | b) : (b << 16 | g << 8 | r));
 }
 
-static void bright_panel(VkImage dst)
+static uint32_t ov_unit(void)
 {
-    enum { CW = 126, CH = 30 };
-    uint64_t t = s_bright_shown;
-    uint32_t u, pw, ph, x, y, i, *px;
-    uint32_t bg, edge, fg, on, off;
-    int bgr = s_sc_format == VK_FORMAT_B8G8R8A8_UNORM;
-    char text[8];
-    VkDeviceSize at;
+    return s_sc_extent.height >= 1080 ? 4 : s_sc_extent.height >= 720 ? 3 : 2;
+}
+
+static int ov_begin(Ov *o, uint32_t cw, uint32_t ch, uint32_t u)
+{
+    o->cw = cw; o->ch = ch; o->u = u;
+    o->pw = cw * u; o->ph = ch * u;
+    if (o->pw > s_sc_extent.width || o->ph > s_sc_extent.height)
+        return 0;
+    o->at = ring_alloc((VkDeviceSize)o->pw * o->ph * 4, 16, (void **)&o->px);
+    return o->px != NULL;
+}
+
+static void ov_rect(Ov *o, uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint32_t c)
+{
+    uint32_t r, i;
+    if (x >= o->cw || y >= o->ch)
+        return;
+    if (x + w > o->cw) w = o->cw - x;
+    if (y + h > o->ch) h = o->ch - y;
+    for (r = y * o->u; r < (y + h) * o->u; r++)
+        for (i = x * o->u; i < (x + w) * o->u; i++)
+            o->px[(size_t)r * o->pw + i] = c;
+}
+
+/* Text at (x, y) in units; returns the width drawn. */
+static uint32_t ov_text(Ov *o, uint32_t x, uint32_t y, const char *s, uint32_t c)
+{
+    uint32_t x0 = x, gx, gy;
+    for (; *s; s++, x += 6) {
+        const uint8_t *g = menu_glyph(*s);
+        for (gy = 0; g && gy < 7; gy++)
+            for (gx = 0; gx < 5; gx++)
+                if (g[gy] & (0x10 >> gx))
+                    ov_rect(o, x + gx, y + gy, 1, 1, c);
+    }
+    return x - x0;
+}
+
+static void ov_end(Ov *o, VkImage dst, int32_t sx, int32_t sy)
+{
     VkBufferImageCopy rg;
     VkMemoryBarrier mb = { VK_STRUCTURE_TYPE_MEMORY_BARRIER };
-
-    if (!t || armTicksToNs(armGetSystemTick() - t) > 2500000000ull)
-        return;
-#define PANEL_RGB(r, g, b) (0xFF000000u | (bgr ? ((r) << 16 | (g) << 8 | (b)) : ((b) << 16 | (g) << 8 | (r))))
-    bg = PANEL_RGB(16u, 16u, 20u); edge = PANEL_RGB(150u, 150u, 150u); fg = PANEL_RGB(240u, 240u, 240u);
-    on = PANEL_RGB(235u, 180u, 60u); off = PANEL_RGB(60u, 60u, 60u);
-#undef PANEL_RGB
-    u = s_sc_extent.height >= 1080 ? 4 : s_sc_extent.height >= 720 ? 3 : 2;
-    pw = CW * u; ph = CH * u;
-    if (pw > s_sc_extent.width || ph > s_sc_extent.height)
-        return;
-    at = ring_alloc((VkDeviceSize)pw * ph * 4, 16, (void **)&px);
-    if (!px)
-        return;
-    for (y = 0; y < CH; y++)
-        for (x = 0; x < CW; x++) {
-            uint32_t c = (x == 0 || y == 0 || x == CW - 1 || y == CH - 1) ? edge : bg;
-            if (y >= 16 && y < 26 && x >= 4 && x < 124 && (x - 4) % 12 < 10)
-                c = (int)((x - 4) / 12) < bright_level() ? on : off;
-            for (i = 0; i < u * u; i++)
-                px[(y * u + i / u) * pw + x * u + i % u] = c;
-        }
-    snprintf(text, sizeof text, "BRILHO");
-    for (i = 0; i < 2; i++) {
-        uint32_t cx = i ? CW - 4 - 6 * (uint32_t)strlen(text) + 1 : 4, k;
-        for (k = 0; text[k]; k++, cx += 6) {
-            const uint8_t *gl = panel_glyph(text[k]);
-            for (y = 0; gl && y < 7; y++)
-                for (x = 0; x < 5; x++)
-                    if (gl[y] & (0x10 >> x)) {
-                        uint32_t j;
-                        for (j = 0; j < u * u; j++)
-                            px[((4 + y) * u + j / u) * pw + (cx + x) * u + j % u] = fg;
-                    }
-        }
-        snprintf(text, sizeof text, "%d/10", bright_level());
-    }
     mb.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
     mb.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
     vkCmdPipelineBarrier(s_cb, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
                          0, 1, &mb, 0, NULL, 0, NULL);
     memset(&rg, 0, sizeof rg);
-    rg.bufferOffset = at;
+    rg.bufferOffset = o->at;
     rg.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     rg.imageSubresource.layerCount = 1;
-    rg.imageOffset.x = (int32_t)((s_sc_extent.width - pw) / 2);
-    rg.imageOffset.y = (int32_t)(s_sc_extent.height - ph - s_sc_extent.height / 8);
-    rg.imageExtent.width = pw;
-    rg.imageExtent.height = ph;
+    rg.imageOffset.x = sx;
+    rg.imageOffset.y = sy;
+    rg.imageExtent.width = o->pw;
+    rg.imageExtent.height = o->ph;
     rg.imageExtent.depth = 1;
     vkCmdCopyBufferToImage(s_cb, s_f->ring, dst, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &rg);
+}
+
+/* The brightness panel: "BRILHO", the level and a bar of ten segments,
+ * over the bottom of the image for 2.5 s after each Minus + D-pad press. */
+static void bright_panel(VkImage dst)
+{
+    enum { CW = 126, CH = 30 };
+    uint64_t t = s_bright_shown;
+    char text[8];
+    uint32_t i;
+    Ov o;
+
+    if (!t || ov_now_ns() - t > 2500000000ull)
+        return;
+    if (!ov_begin(&o, CW, CH, ov_unit()))
+        return;
+    ov_rect(&o, 0, 0, CW, CH, ov_rgb(150, 150, 150));
+    ov_rect(&o, 1, 1, CW - 2, CH - 2, ov_rgb(16, 16, 20));
+    for (i = 0; i < 10; i++)
+        ov_rect(&o, 4 + i * 12, 16, 10, 10, (int)i < bright_level() ? ov_rgb(235, 180, 60) : ov_rgb(60, 60, 60));
+    ov_text(&o, 4, 4, "BRILHO", ov_rgb(240, 240, 240));
+    snprintf(text, sizeof text, "%d/10", bright_level());
+    ov_text(&o, CW - 4 - 6 * (uint32_t)strlen(text) + 1, 4, text, ov_rgb(240, 240, 240));
+    ov_end(&o, dst, (int32_t)((s_sc_extent.width - o.pw) / 2),
+           (int32_t)(s_sc_extent.height - o.ph - s_sc_extent.height / 8));
+}
+
+/* ── Mod menu ─────────────────────────────────────────────────────── */
+
+static NvMenuItem s_menu[NV_MENU_MAX];
+static int s_menu_n, s_menu_sel;
+static volatile int s_menu_open;
+
+static int env_int(const char *key, int def)
+{
+    const char *e = getenv(key);
+    return e && *e ? atoi(e) : def;
+}
+
+static int menu_get_bright(void) { return bright_level(); }
+static void menu_set_bright(int v) { nv2a_vk_brightness_step(v - bright_level()); }
+static int menu_get_fps(void) { return s_mod_fps; }
+static void menu_set_fps(int v) { s_mod_fps = v; }
+static int menu_get_fog(void) { return s_mod_fog; }
+static void menu_set_fog(int v) { s_mod_fog = v; }
+static int menu_get_shadows(void) { return s_mod_shadows; }
+static void menu_set_shadows(int v) { s_mod_shadows = v; }
+
+void nv2a_menu_add(const char *label, const char *key, int min, int max, int (*get)(void),
+                   void (*set)(int), const char *const *names, const char *const *values,
+                   int restart)
+{
+    NvMenuItem *m;
+    if (s_menu_n >= NV_MENU_MAX)
+        return;
+    m = &s_menu[s_menu_n++];
+    m->label = label; m->key = key; m->min = min; m->max = max;
+    m->get = get; m->set = set; m->names = names; m->values = values; m->restart = restart;
+}
+
+/* The renderer's own items, first in the list. */
+static void menu_init(void)
+{
+    static const char *const yesno[] = { "NAO", "SIM" };
+    static const char *const shadow_names[] = { "NAO", "25%", "50%", "75%", "SIM" };
+    static int done;
+    if (done++)
+        return;
+    s_mod_fps = env_int("COLDFEAR_MOD_FPS", 0) != 0;
+    s_mod_fog = env_int("COLDFEAR_MOD_FOG", 1) != 0;
+    s_mod_shadows = env_int("COLDFEAR_MOD_SHADOWS", 4);
+    if (s_mod_shadows < 0 || s_mod_shadows > 4)
+        s_mod_shadows = 4;
+    {
+        /* Built-ins go in front of whatever the port registered at boot. */
+        NvMenuItem port[NV_MENU_MAX];
+        int n = s_menu_n, k;
+        memcpy(port, s_menu, sizeof port);
+        s_menu_n = 0;
+        nv2a_menu_add("BRILHO", NULL, 0, 10, menu_get_bright, menu_set_bright, NULL, NULL, 0);
+        for (k = 0; k < n && k < 1; k++)        /* the port's first item: resolution */
+            s_menu[s_menu_n++] = port[k];
+        nv2a_menu_add("CONTADOR DE FPS", "COLDFEAR_MOD_FPS", 0, 1, menu_get_fps, menu_set_fps,
+                      yesno, NULL, 0);
+        nv2a_menu_add("SOMBRAS DAS LAMPADAS", "COLDFEAR_MOD_SHADOWS", 0, 4, menu_get_shadows,
+                      menu_set_shadows, shadow_names, NULL, 0);
+        nv2a_menu_add("NEVOA", "COLDFEAR_MOD_FOG", 0, 1, menu_get_fog, menu_set_fog, yesno, NULL, 0);
+        for (k = 1; k < n && s_menu_n < NV_MENU_MAX; k++)
+            s_menu[s_menu_n++] = port[k];
+    }
+}
+
+/* mods.txt beside the caches: KEY=value for every item that has a key.
+ * The port reads it at boot, before coldfear_env.txt. */
+static void menu_save(void)
+{
+    char path[256];
+    FILE *f;
+    int i;
+    if (!cache_path(path, sizeof path, "mods.txt") || !(f = fopen(path, "w")))
+        return;
+    fprintf(f, "# Written by the in-game mod menu (Minus + R3).\n");
+    for (i = 0; i < s_menu_n; i++) {
+        NvMenuItem *m = &s_menu[i];
+        int v = m->get();
+        if (!m->key)
+            continue;
+        if (m->values)
+            fprintf(f, "%s=%s\n", m->key, m->values[v - m->min]);
+        else
+            fprintf(f, "%s=%d\n", m->key, v);
+    }
+    fclose(f);
+}
+
+/* From the controller thread (xinput_nx.c). */
+int nv2a_menu_is_open(void) { return s_menu_open; }
+
+void nv2a_menu_key(int key)
+{
+    menu_init();
+    if (key == NV_MENU_TOGGLE || key == NV_MENU_CLOSE) {
+        if (s_menu_open)
+            menu_save();
+        s_menu_open = key == NV_MENU_TOGGLE ? !s_menu_open : 0;
+        fprintf(stderr, "[MENU] %s\n", s_menu_open ? "open" : "closed");
+        return;
+    }
+    if (!s_menu_open || !s_menu_n)
+        return;
+    if (key == NV_MENU_UP)
+        s_menu_sel = (s_menu_sel + s_menu_n - 1) % s_menu_n;
+    else if (key == NV_MENU_DOWN)
+        s_menu_sel = (s_menu_sel + 1) % s_menu_n;
+    else if (key == NV_MENU_LEFT || key == NV_MENU_RIGHT) {
+        NvMenuItem *m = &s_menu[s_menu_sel];
+        int v = m->get() + (key == NV_MENU_RIGHT ? 1 : -1);
+        if (v < m->min) v = m->max;
+        if (v > m->max) v = m->min;
+        m->set(v);
+        fprintf(stderr, "[MENU] %s = %d\n", m->label, v);
+    }
+}
+
+static void menu_panel(VkImage dst)
+{
+    enum { CW = 200, ROW = 11 };
+    uint32_t ch, i, white, dim, gold, sel_bg;
+    int any_restart = 0;
+    char val[40];
+    Ov o;
+
+    if (!s_menu_open)
+        return;
+    menu_init();
+    ch = 24 + (uint32_t)s_menu_n * ROW + 22;
+    if (!ov_begin(&o, CW, ch, ov_unit()))
+        return;
+    white = ov_rgb(240, 240, 240); dim = ov_rgb(150, 150, 150);
+    gold = ov_rgb(235, 180, 60); sel_bg = ov_rgb(55, 45, 25);
+    ov_rect(&o, 0, 0, CW, ch, ov_rgb(150, 150, 150));
+    ov_rect(&o, 1, 1, CW - 2, ch - 2, ov_rgb(14, 14, 18));
+    ov_text(&o, 6, 6, "COLD FEAR - MOD MENU", gold);
+    ov_rect(&o, 6, 16, CW - 12, 1, dim);
+    for (i = 0; i < (uint32_t)s_menu_n; i++) {
+        NvMenuItem *m = &s_menu[i];
+        uint32_t y = 22 + i * ROW, w;
+        int v = m->get(), sel = (int)i == s_menu_sel;
+        if (sel)
+            ov_rect(&o, 3, y - 2, CW - 6, ROW, sel_bg);
+        ov_text(&o, 6, y, m->label, sel ? gold : white);
+        if (m->restart) {
+            ov_text(&o, 6 + 6 * (uint32_t)strlen(m->label), y, "+", dim);
+            any_restart = 1;
+        }
+        if (m->names)
+            snprintf(val, sizeof val, "%s", m->names[v - m->min]);
+        else
+            snprintf(val, sizeof val, "%d", v);
+        w = 6 * (uint32_t)strlen(val);
+        if (sel) {
+            ov_text(&o, CW - 18 - w, y, "<", gold);
+            ov_text(&o, CW - 11, y, ">", gold);
+        }
+        ov_text(&o, CW - 12 - w, y, val, sel ? gold : white);
+    }
+    {
+        uint32_t y = 24 + (uint32_t)s_menu_n * ROW + 2;
+        ov_rect(&o, 6, y - 3, CW - 12, 1, dim);
+        ov_text(&o, 6, y + 2, any_restart ? "+ AO REINICIAR    B: FECHAR" : "B: FECHAR", dim);
+    }
+    ov_end(&o, dst, (int32_t)((s_sc_extent.width - o.pw) / 2), (int32_t)((s_sc_extent.height - o.ph) / 2));
+}
+
+/* FPS counter (top left): presents counted over each half second. */
+static void fps_counter(VkImage dst)
+{
+    static uint64_t t0;
+    static uint32_t frames, shown;
+    uint64_t now = ov_now_ns();
+    char text[16];
+    Ov o;
+
+    if (s_mod_fps < 0)
+        menu_init();
+    frames++;
+    if (!t0)
+        t0 = now;
+    if (now - t0 >= 500000000ull) {
+        shown = (uint32_t)(frames * 1000000000ull / (now - t0));
+        frames = 0;
+        t0 = now;
+    }
+    if (s_mod_fps != 1)
+        return;
+    snprintf(text, sizeof text, "FPS %u", shown);
+    if (!ov_begin(&o, 6 * (uint32_t)strlen(text) + 5, 11, ov_unit() > 2 ? ov_unit() - 1 : 2))
+        return;
+    ov_rect(&o, 0, 0, o.cw, o.ch, ov_rgb(0, 0, 0));
+    ov_text(&o, 3, 2, text, shown >= 28 ? ov_rgb(120, 230, 120) : shown >= 20 ? ov_rgb(235, 200, 60)
+                                                                               : ov_rgb(235, 90, 70));
+    ov_end(&o, dst, 8, 8);
+}
+
+static void overlays(VkImage dst)
+{
+    bright_panel(dst);
+    fps_counter(dst);
+    menu_panel(dst);
 }
 
 static VkImage gamma_apply(VkSurf *s)
@@ -4822,7 +5063,7 @@ static void vk_flip(uint32_t completed_color_va)
                 vkCmdBlitImage(s_cb, src_img, VK_IMAGE_LAYOUT_GENERAL, dst,
                                VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &bl, VK_FILTER_LINEAR);
             }
-            bright_panel(dst);
+            overlays(dst);
             b.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
             b.dstAccessMask = 0;
             b.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;

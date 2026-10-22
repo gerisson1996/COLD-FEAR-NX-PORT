@@ -72,16 +72,21 @@ static const uint8_t *menu_glyph(char c)
 }
 
 /* One line of the menu. get/set work on the item's value, min..max;
- * names[value - min] labels it (NULL: the number itself). */
+ * names[value - min] labels it (NULL: the number itself). key, when set, is
+ * the mods.txt / environment name it is saved under, as values[value - min]
+ * (NULL: the number). */
 typedef struct {
-    const char *label;
+    const char *label, *key;
     int min, max;
     int (*get)(void);
     void (*set)(int v);
-    const char *const *names;
+    const char *const *names, *const *values;
     int restart;                 /* takes effect the next time the game starts */
 } NvMenuItem;
 
 #define NV_MENU_MAX 16
+
+/* nv2a_menu_key: what the controller asked for. */
+enum { NV_MENU_TOGGLE, NV_MENU_CLOSE, NV_MENU_UP, NV_MENU_DOWN, NV_MENU_LEFT, NV_MENU_RIGHT };
 
 #endif

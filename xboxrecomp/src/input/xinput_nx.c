@@ -53,8 +53,10 @@
 
 #include "xinput_nx.h"
 
-/* nv2a_vk.c: picture brightness, Minus + D-pad up/down. */
+/* nv2a_vk.c: picture brightness, Minus + D-pad up/down; the mod menu. */
 void nv2a_vk_brightness_step(int d);
+int nv2a_menu_is_open(void);
+void nv2a_menu_key(int key);
 
 #define NX_PADS 2   /* players */
 #define NX_SRCS 3   /* slots: handheld, No1, No2 */
@@ -227,6 +229,29 @@ int xbox_nx_pad_read(unsigned port, uint16_t *digital, uint8_t analog[8],
 
     if (!mask[port])
         return 0;
+
+    {
+        /* The mod menu (nv2a_vk.c): Minus + R3 opens and closes it; while it
+         * is open the D-pad moves and changes, B closes, and the game sees
+         * no input at all. Keys: 0 toggle, 1 close, 2 up, 3 down, 4 left,
+         * 5 right (nv2a_menu.h). */
+        static u64 s_mprev[NX_PADS];
+        u64 edge = b & ~s_mprev[port];
+        s_mprev[port] = b;
+        if ((b & HidNpadButton_Minus) && (edge & HidNpadButton_StickR)) {
+            nv2a_menu_key(0);
+        } else if (nv2a_menu_is_open()) {
+            if (edge & HidNpadButton_Up)    nv2a_menu_key(2);
+            if (edge & HidNpadButton_Down)  nv2a_menu_key(3);
+            if (edge & HidNpadButton_Left)  nv2a_menu_key(4);
+            if (edge & HidNpadButton_Right) nv2a_menu_key(5);
+            if (edge & HidNpadButton_B)     nv2a_menu_key(1);
+        }
+        if (nv2a_menu_is_open() || ((b & HidNpadButton_Minus) && (b & HidNpadButton_StickR))) {
+            b = 0;
+            l.x = l.y = r.x = r.y = 0;
+        }
+    }
 
     {
         /* Minus + D-pad up/down: picture brightness (nv2a_vk), one step per

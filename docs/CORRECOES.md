@@ -67,6 +67,7 @@ Quase tudo está em `xboxrecomp/src/nv2a_vk/nv2a_vk.c` e nos tradutores de shade
 ### Imagem final
 
 - **Rampa de gama do jogo:** o D3D grava no DAC; agora vai para uma passada LUT antes do present (`tools/fix_gamma_ramp.py`, `NV2A_GAMMA=0`).
+- **Menu de mods** (− + R3, `nv2a_menu.h` + `overlays` em `nv2a_vk.c`, itens do port em `switch_nx.c`): brilho, resolução, contador de FPS, sombras das lâmpadas em 5 níveis (escala `u_out_scale` só nas passadas `REV_SUBTRACT`), névoa e overclock ao vivo. Desligar o overclock fecha a sessão do clkrst; mantida aberta no clock de fábrica, o sistema derrubava a CPU a cada segundo depois que o overclock era religado. As escolhas ficam em `mods.txt`, lido antes do `coldfear_env.txt`.
 - **Brilho do jogador:** **−** + direcional cima/baixo, níveis 0–10, salvo em `brightness.txt`, com painel "BRILHO" na tela.
 - **Resolução interna:** `RECOMP_GL_SCALE=1.5` dá 960×720 sem custo visível de FPS, porque o gargalo é a CPU. O overlay de vídeo (FMV) passa por uma imagem intermediária e é esticado, senão ficava num canto.
 

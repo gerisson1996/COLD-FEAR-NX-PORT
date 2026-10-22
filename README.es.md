@@ -46,6 +46,7 @@ Jugable en una Switch real, desde el menú hasta el gameplay en el barco.
 - Video: Vulkan/NVK con los shaders de vértices y de píxeles de la NV2A traducidos a GLSL, niebla, stencil, mapas de sombra de la lámpara, texturas de volumen, polygon offset, la rampa de gamma del juego.
 - Iluminación fija de la NV2A (luces por vértice, generación de coordenadas de textura y matrices de textura) en el shader de vértices.
 - Brillo ajustable en el juego: mantén **−** y pulsa la cruceta **arriba/abajo** (0 a 10, se guarda en la SD).
+- **Menú de mods** en el juego: mantén **−** y pulsa **R3**. Tiene brillo, resolución, contador de FPS, sombras de las lámparas (apagadas, 25%, 50%, 75% o normales), niebla y overclock. Las opciones se guardan en `mods.txt`.
 - Rendimiento: unos 22–30 FPS en el barco sin overclock (el overclock opcional suma ~5).
 - Resolución interna 960×720 por defecto (`RECOMP_GL_SCALE`), más nítida en la pantalla de 720p.
 
