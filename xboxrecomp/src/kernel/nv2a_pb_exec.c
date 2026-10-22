@@ -4205,6 +4205,28 @@ void nv2a_pb_exec_method(uint32_t subch, uint32_t method, uint32_t param)
         volatile uint32_t *nv = (volatile uint32_t *)
             ((uint8_t *)xbox_GetMemoryOffset() + 0xFD000000u);
 
+        if (param == 9) {
+            /* XDK D3D's software method 9 (Cold Fear: sub_0026E190, case 9)
+             * only copies one PGRAPH register into another NV2A register:
+             * nv[nv[0x401A88]] = nv[0x40186C]. Done here, without the trap:
+             * the round trip -- raise the interrupt, wait for a guest
+             * thread to take the guest lock and run the handler -- came
+             * ~270 times a second and kept the executor and the game
+             * thread waiting on each other. NV2A_NOP9_HLE=0: trap it. */
+            static int hle = -1;
+            if (hle < 0) {
+                const char *e = getenv("NV2A_NOP9_HLE");
+                hle = !(e && *e == '0');
+                fprintf(stderr, "  [PB] NOP(9) %s\n", hle ? "done by the executor" : "trapped to D3D");
+            }
+            if (hle) {
+                uint32_t off = nv[0x401A88 / 4];
+                if (off < 0x01000000u && !(off & 3))
+                    nv[off / 4] = nv[0x40186C / 4];
+                return;
+            }
+        }
+
         /* On real NV2A hardware, if PGRAPH interrupt is not unmasked in PMC_INTR_EN_0,
          * software traps are dropped and PGRAPH continues executing without stalling.
          * Cold Fear enables interrupts by setting bit 0 (master) in PMC_INTR_EN_0 (0xFD000140). */

@@ -4,7 +4,7 @@
 
 Port experimental por recompilación estática: el ejecutable x86 de Xbox se convierte en C y se compila para ARM64 con el toolkit [xboxrecomp](xboxrecomp/) y un renderizador Vulkan (NVK). No es emulación: el código del juego corre de forma nativa, y solo se reimplementa el hardware de Xbox (GPU NV2A, audio, kernel).
 
-Versión **0.0.2** — autor RECOMP-GUTO.
+Versión **0.0.3** — autor RECOMP-GUTO.
 
 **Este repositorio no contiene el juego.** Los archivos del disco, el XBE y el código C generado a partir de él no se distribuyen. Para compilar o jugar necesitas tu propia copia de Cold Fear (Xbox).
 
@@ -46,7 +46,8 @@ Jugable en una Switch real, desde el menú hasta el gameplay en el barco.
 - Video: Vulkan/NVK con los shaders de vértices y de píxeles de la NV2A traducidos a GLSL, niebla, stencil, mapas de sombra de la lámpara, texturas de volumen, polygon offset, la rampa de gamma del juego.
 - Iluminación fija de la NV2A (luces por vértice, generación de coordenadas de textura y matrices de textura) en el shader de vértices.
 - Brillo ajustable en el juego: mantén **−** y pulsa la cruceta **arriba/abajo** (0 a 10, se guarda en la SD).
-- Rendimiento: unos 17–24 FPS en el barco, con overclock opcional.
+- Rendimiento: unos 22–30 FPS en el barco sin overclock (el overclock opcional suma ~5).
+- Resolución interna 960×720 por defecto (`RECOMP_GL_SCALE`), más nítida en la pantalla de 720p.
 
 Problemas conocidos:
 
@@ -55,7 +56,7 @@ Problemas conocidos:
 
 ## Próximas correcciones
 
-- **Rendimiento:** subir de los ~17–24 FPS actuales en el barco, reduciendo el costo del cambio entre los hilos del juego, de las lecturas de TLS y de las asignaciones del driver NVK.
+- **Rendimiento:** llegar a 30 FPS estables, reduciendo el costo de las llamadas entre funciones del juego (registros guardados en cada llamada), de las lecturas de TLS y del cambio entre los hilos del juego.
 
 ## Jugar (release lista)
 
@@ -117,6 +118,8 @@ Una por línea, `CLAVE=valor`; las líneas que empiezan con `#` se ignoran.
 | --- | --- |
 | `COLDFEAR_LOG=0` | sin log |
 | `NV2A_BRIGHTNESS=n` | brillo inicial (0–10) si aún no existe `brightness.txt` |
+| `RECOMP_GL_SCALE=n` | resolución interna: 1 = 640×480, 1.5 = 960×720 (por defecto), 2 = 1280×960 |
+| `RECOMP_VK_INSTANCE=0` | desactiva la agrupación de dibujos repetidos (activada por defecto) |
 | `NV2A_SHADOW_BIAS=n` | tolerancia de la comparación de sombra de las lámparas (128 por defecto) |
 | `COLDFEAR_CPU_MHZ` / `COLDFEAR_GPU_MHZ` / `COLDFEAR_MEM_MHZ` | overclock opcional |
 

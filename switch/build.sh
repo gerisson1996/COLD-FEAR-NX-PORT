@@ -36,7 +36,8 @@ cmake -S "$REPO" -B "$BUILD" -G Ninja \
     -DCMAKE_BUILD_TYPE=Release \
     -DXBOXRECOMP_DIR="$TK" \
     -DCOLDFEAR_GEN_DIR="$GEN" \
-    -DCOLDFEAR_VULKAN="${VULKAN:-ON}"
+    -DCOLDFEAR_VULKAN="${VULKAN:-ON}" \
+    -DCOLDFEAR_GEN_OPT="${GEN_OPT:--O3}"
 
 ninja -C "$BUILD" "-j${JOBS:-6}" 2>&1 | tee "$REPO/analysis/build-switch.log"
 echo "Built $BUILD/coldfear_recomp.nro"

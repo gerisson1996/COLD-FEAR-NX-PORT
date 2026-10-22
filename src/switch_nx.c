@@ -392,6 +392,12 @@ static void load_env(void)
     /* The renderer's caches and brightness.txt (nv2a_vk cache_dir); the
      * toolkit's default is another port's folder. */
     setenv("RECOMP_CACHE_DIR", COLDFEAR_SWITCH_DIR "/", 0);
+    /* Defaults the console tests settled on; coldfear_env.txt overrides
+     * them. Instanced draws took the pushbuffer thread from ~70% to ~55% of
+     * a core; 1.5x renders 960x720 for the 720p screen at no measurable
+     * cost (the game thread, not the GPU, sets the frame rate). */
+    setenv("RECOMP_VK_INSTANCE", "1", 0);
+    setenv("RECOMP_GL_SCALE", "1.5", 0);
     if (!f)
         return;
     while (fgets(line, sizeof line, f)) {

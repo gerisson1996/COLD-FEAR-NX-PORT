@@ -288,7 +288,7 @@ static int game_main(void)
     setvbuf(stdout, NULL, _IONBF, 0);
     setvbuf(stderr, NULL, _IONBF, 0);
 
-    printf("=== Cold Fear (Xbox) - static recompilation [BUILD: 0.0.2 | %s %s] ===\n", __DATE__, __TIME__);
+    printf("=== Cold Fear (Xbox) - static recompilation [BUILD: 0.0.3 | %s %s] ===\n", __DATE__, __TIME__);
     install_crash_reporter();
     if (getenv("COLDFEAR_EXIT_TRACE"))
         atexit(print_guest_state);

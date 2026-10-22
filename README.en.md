@@ -4,7 +4,7 @@
 
 An experimental static recompilation port: the Xbox's x86 executable is turned into C and compiled for ARM64 with the [xboxrecomp](xboxrecomp/) toolkit and a Vulkan (NVK) renderer. This is not emulation: the game's code runs natively, and only the Xbox hardware (NV2A GPU, audio, kernel) is reimplemented.
 
-Version **0.0.2** — by RECOMP-GUTO.
+Version **0.0.3** — by RECOMP-GUTO.
 
 **This repository does not contain the game.** The disc files, the XBE and the C code generated from it are not distributed. To build or play you need your own copy of Cold Fear (Xbox).
 
@@ -46,7 +46,8 @@ Playable on real Switch hardware, from the menu to gameplay on the ship.
 - Video: Vulkan/NVK with the NV2A's vertex and pixel shaders translated to GLSL, fog, stencil, lamp shadow maps, volume textures, polygon offset, the game's gamma ramp.
 - NV2A fixed-function lighting (per-vertex lights, texture coordinate generation, texture matrices) in the vertex shader.
 - In-game brightness: hold **−** and press the D-pad **up/down** (0 to 10, saved to the SD card).
-- Performance: about 17–24 FPS on the ship, with optional overclocking.
+- Performance: about 22–30 FPS on the ship without overclocking (the optional overclock adds ~5).
+- Internal resolution 960×720 by default (`RECOMP_GL_SCALE`), sharper on the 720p screen.
 
 Known issues:
 
@@ -55,7 +56,7 @@ Known issues:
 
 ## Upcoming fixes
 
-- **Performance:** raise the current ~17–24 FPS on the ship by cutting the cost of switching between the game's threads, of TLS reads and of the NVK driver's allocations.
+- **Performance:** reach a steady 30 FPS by cutting the cost of calls between game functions (registers saved on every call), of TLS reads and of switching between the game's threads.
 
 ## Play (ready-made release)
 
@@ -117,6 +118,8 @@ One per line, `KEY=value`; lines starting with `#` are ignored.
 | --- | --- |
 | `COLDFEAR_LOG=0` | no log |
 | `NV2A_BRIGHTNESS=n` | starting brightness (0–10) when there is no `brightness.txt` yet |
+| `RECOMP_GL_SCALE=n` | internal resolution: 1 = 640×480, 1.5 = 960×720 (default), 2 = 1280×960 |
+| `RECOMP_VK_INSTANCE=0` | turns off batching of repeated draws (on by default) |
 | `NV2A_SHADOW_BIAS=n` | tolerance of the lamps' shadow comparison (default 128) |
 | `COLDFEAR_CPU_MHZ` / `COLDFEAR_GPU_MHZ` / `COLDFEAR_MEM_MHZ` | optional overclock |
 

@@ -73,7 +73,7 @@ else()
         nx_generate_nacp(OUTPUT "${COLDFEAR_NACP}"
             NAME "Cold Fear Xbox Port"
             AUTHOR "RECOMP-GUTO"
-            VERSION "0.0.2")
+            VERSION "0.0.3")
         # Homebrew menu icon: the 256x256 JPEG made from the v2 cover.
         nx_create_nro(${PROJECT_NAME} NACP "${COLDFEAR_NACP}"
             ICON "${CMAKE_CURRENT_SOURCE_DIR}/artwork/coldfear-icon-256.jpg")
@@ -83,7 +83,7 @@ else()
 endif()
 
 if(NOT WIN32)
-    set(COLDFEAR_GEN_OPT "-O2" CACHE STRING
+    set(COLDFEAR_GEN_OPT "-O3" CACHE STRING
         "Optimisation level for generated game code")
     set_source_files_properties(${RECOMP_GEN_SOURCES} PROPERTIES
         COMPILE_FLAGS "${COLDFEAR_GEN_OPT} -w -fno-strict-aliasing -fwrapv")

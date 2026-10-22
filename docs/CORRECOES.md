@@ -72,7 +72,7 @@ Quase tudo está em `xboxrecomp/src/nv2a_vk/nv2a_vk.c` e nos tradutores de shade
 
 ## 4. Desempenho
 
-Medidas no Switch sem overclock: de 13–21 FPS no começo para ~22–30 FPS.
+Medidas no Switch sem overclock: de 13–21 FPS no começo para ~22–30 FPS (v0.0.3).
 
 | Achado | Ganho / correção |
 | --- | --- |
@@ -85,9 +85,12 @@ Medidas no Switch sem overclock: de 13–21 FPS no começo para ~22–30 FPS.
 | Superfície de desenho guardada só por endereço: os mapas de sombra eram recriados várias vezes por quadro (~12% da thread gráfica em alocação no driver) | cache por endereço **e** largura |
 | `vkCmdBindVertexBuffers` com 16 bindings: o Mesa faz `malloc` acima de 8 (7% da thread gráfica) | duas chamadas de 8 |
 | Acessos à memória sem `volatile` | **sem ganho**; mantido o `volatile` (seguro) |
+| Interrupção `NOP(9)` do D3D (~270/s): a thread gráfica parava até o jogo rodar o handler, que só copia um registrador da GPU para outro (`nv[nv[0x401A88]] = nv[0x40186C]`) | feita direto no executor (`nv2a_pb_exec.c`, `NV2A_NOP9_HLE=0` volta ao trap); a espera da thread do jogo caiu de ~15% para ~2–13% |
+| Desenhos repetidos um por um | instancing (`RECOMP_VK_INSTANCE`, agora padrão): thread gráfica de ~70% para ~55% |
+| Código do jogo compilado com `-O2` | `-O3` (`switch/build.sh`, `GEN_OPT`): ~+5 FPS de média no teste; NRO maior (95 MB) |
 | Overclock (CPU 1785 / memória 1600) | +~5 FPS, mas fica opcional (`COLDFEAR_CPU_MHZ`, `COLDFEAR_MEM_MHZ`) |
 
-**Gargalo atual:** a thread do jogo espera um evento dentro do present do D3D (`0x0027516C`), e a thread gráfica para ~270 vezes por segundo esperando o D3D tratar a interrupção `NOP(9)`. As duas threads esperam uma pela outra. Esse é o próximo alvo.
+**Gargalo atual (v0.0.3):** a thread do jogo, em ~70–80% de um núcleo. O maior custo restante é o código traduzido salvar e recarregar os 7 registradores x86 em toda chamada de função, mais as leituras de TLS e a troca do GIL. O próximo passo é mudar o lifter para salvar só os registradores usados.
 
 ## 5. Ferramentas de diagnóstico
 
@@ -110,5 +113,5 @@ Medidas no Switch sem overclock: de 13–21 FPS no começo para ~22–30 FPS.
 
 - Legenda some por alguns segundos durante uma conversa no main deck (a voz toca normalmente). A suspeita é um efeito de tela cheia cobrindo o texto.
 - Brilho especular da iluminação fixa ainda não calculado.
-- Sincronização `NOP(9)` entre a thread gráfica e o jogo (desempenho).
+- Lifter: salvar só os registradores usados em cada chamada (desempenho).
 - Remover os logs de diagnóstico ainda compilados.

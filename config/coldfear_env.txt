@@ -2,7 +2,7 @@
 RECOMP_VBLANK=1
 RECOMP_AUDIO=1
 COLDFEAR_LOG=1
-# Render resolution: 1.5 = 960x720 (sharper on the 720p screen), 2 = 1280x960.
+# Render resolution (default 1.5 = 960x720): 1 = 640x480, 2 = 1280x960.
 #RECOMP_GL_SCALE=1.5
 # Optional overclock (more heat and battery): remove the # to turn it on.
 #COLDFEAR_CPU_MHZ=1785
