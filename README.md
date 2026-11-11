@@ -100,7 +100,7 @@ Get-FileHash .\game\default.xbe -Algorithm SHA256
 
 ## Jogar
 
-Você precisa da sua própria cópia de Cold Fear (Xbox, NTSC-U). **O `.nro` não é distribuído aqui a partir da 0.1**, porque ele contém o código do jogo recompilado: compile o seu (seção abaixo).
+Você precisa da sua própria cópia de Cold Fear (Xbox, NTSC-U). Baixe o `coldfear.nro` em [Releases](https://github.com/gerisson1996/COLD-FEAR-NX-PORT/releases/latest) e monte o cartão assim:
 
 ```text
 sdmc:/switch/coldfear/
@@ -170,4 +170,4 @@ O código na raiz (`src/`, `xboxrecomp/`, `switch/`, `tools/`) é o primeiro por
 
 - Port novo: XboxXBE-Recomp (MIT), Black-Android, base de `kit/exemplos/coldfear/src/common` (MIT, `kit/exemplos/coldfear/LICENSE-Black-Android`), Mesa/NVK (MIT), glslang, Dear ImGui e toml++ nas licenças deles.
 - Port antigo: veja `docs/PROVENANCE.md`; o toolkit xboxrecomp mantém suas licenças em `xboxrecomp/LICENSE`, `xboxrecomp/NOTICE` e `xboxrecomp/LICENSES/`; o restante segue `LICENSE` e `NOTICE` na raiz.
-- Não distribua os arquivos do jogo, a ISO, o código gerado nem um `.nro` compilado.
+- Não distribua os arquivos do jogo, a ISO nem o código gerado.
