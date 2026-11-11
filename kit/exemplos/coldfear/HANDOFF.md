@@ -28,7 +28,7 @@ Mesmo código do jogo e mesmo renderer Vulkan (`host-switch/vulkan.cpp`), em Win
 - `src/game/menu_bands.cpp` — zera o letterbox das páginas do menu (`[menu+0x50300]`, sub_0022E8C0); o do gameplay (sub_0018E100, câmera 0x368CE0) continua.
 - `src/game/sound.cpp` — hooks de DSOUND: GetCaps (B003E) devolve 192/64 vozes (corrigiu o som), B0061 ignorado.
 - `src/game/coldfear.cpp` — Cold Fear não recebe a flag 480p (`app::g_video_480p = false`, igual ao port antigo).
-- `src/common/menu.cpp` — painel do kit (Minus + R3), contador de FPS via ImGui, esquerda/direita mudam o valor da linha.
+- `src/common/menu.cpp` — painel do kit (L3 + R3 no Switch, confirmado pelo usuário; host-switch/ui.cpp), contador de FPS via ImGui, esquerda/direita mudam o valor da linha.
 - `src/common/game_info.cpp` — combo Minus + R3, opções salvas.
 
 ## Resolvido
@@ -41,7 +41,7 @@ vai da borda da área segura de TV (36 px) mais 8% da altura segura = 68 px. Na 
    sobre a geometria distante (PC, Rear Deck). Na 0.1.33 voltaram a ser pulados por padrão (`skip_revsub` = true, igual ao
    port antigo); Graphics > Quality > SKIP LAMP SUBTRACT PASS desligado os desenha. Falta saber o que o usuário viu como bug
    e se o volume de sombra precisa de stencil/clip para ficar certo.
-2. Opções do kit dentro do menu do próprio jogo (hoje só Minus + R3).
+2. Opções do kit dentro do menu do próprio jogo (hoje só L3 + R3).
 3. Remover os logs de diagnóstico (viewport, band, dsound buffer/play, trace do d3d8.cpp) quando terminar.
 
 Git: só a parte Switch vai para o repositório; Android fica fora do commit.

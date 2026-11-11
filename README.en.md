@@ -41,7 +41,7 @@ What 0.1.37 has:
 - **Gyro aiming:** hold **ZL** (aim) and move the console. The turn goes straight into the game's aim angles, one to one, with none of the stick's dead zone or acceleration. Options: sensitivity, vertical speed, axis (turn / lean / both), steadiness (filters hand shake), drift correction and invert X/Y.
 - **Lamp shadows** fixed: the player and objects cast shadows, without the dark straight-edged areas seen before.
 - **OLED screen:** an OLED SCREEN BOOST option (AUTO / OFF / ON) that lifts the dark tones. On AUTO it turns on by itself on a Switch OLED in handheld mode and off when docked.
-- **Port menu:** hold **−** and press **R3**. Render resolution, screen filter, brightness, V-Sync, FPS cap, FPS counter, anisotropic filtering, shadows, stick dead zones and sensitivity, audio output and the gyro options.
+- **Port menu:** press **L3** and **R3** together (both sticks). Render resolution, screen filter, brightness, V-Sync, FPS cap, FPS counter, anisotropic filtering, shadows, stick dead zones and sensitivity, audio output and the gyro options.
 - Black bars only in gameplay (as in the original); menus fill the screen.
 - Audio: effects, voices and music.
 - Cover art in the Switch menu.
@@ -52,7 +52,7 @@ Performance measured on a Switch (handheld, 100% resolution): 30 FPS for most of
 Known issues:
 
 - FPS drops in the heaviest areas: the dynamic resolution reacts late.
-- The port's options are only in the **− + R3** menu, not yet inside the game's own menu.
+- The port's options are only in the **L3 + R3** menu, not yet inside the game's own menu.
 
 ## Screenshots
 
@@ -67,7 +67,7 @@ The controls are the original game's. The port adds:
 | Button | What it does |
 | --- | --- |
 | Hold **ZL** | Aim; the gyro moves the aim while it is held |
-| **−** + **R3** | Open the port menu |
+| **L3** + **R3** | Open the port menu |
 | Left / right in the menu | Change the option's value |
 
 ## Game version used
@@ -103,7 +103,7 @@ sdmc:/switch/coldfear/
 
 Open it from hbmenu **while holding R on an installed game** (title mode, with all the memory).
 
-Controls: the original game's. **ZL** aims (and turns the gyro on), **− + R3** opens the port menu.
+Controls: the original game's. **ZL** aims (and turns the gyro on), **L3 + R3** opens the port menu.
 
 ## Building (new port, `kit/` folder)
 

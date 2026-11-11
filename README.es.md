@@ -41,7 +41,7 @@ Lo que tiene la 0.1.37:
 - **Giroscopio al apuntar:** mantén **ZL** (apuntar) y mueve la consola. El giro entra directo en los ángulos de puntería del juego, 1:1, sin la zona muerta ni la aceleración del stick. Opciones: sensibilidad, velocidad vertical, eje (girar / inclinar / ambos), estabilidad (filtra el temblor de la mano), corrección de deriva e invertir X/Y.
 - **Sombras de las lámparas** corregidas: el jugador y los objetos proyectan sombra, sin las zonas oscuras de bordes rectos de antes.
 - **Pantalla OLED:** opción OLED SCREEN BOOST (AUTO / OFF / ON) que aclara los tonos oscuros. En AUTO se activa sola en una Switch OLED en modo portátil y se apaga en el dock.
-- **Menú del port:** mantén **−** y pulsa **R3**. Resolución de renderizado, filtro de pantalla, brillo, V-Sync, límite de FPS, contador de FPS, filtro anisotrópico, sombras, zonas muertas y sensibilidad de los sticks, salida de audio y las opciones de giroscopio.
+- **Menú del port:** pulsa **L3** y **R3** a la vez (los dos sticks). Resolución de renderizado, filtro de pantalla, brillo, V-Sync, límite de FPS, contador de FPS, filtro anisotrópico, sombras, zonas muertas y sensibilidad de los sticks, salida de audio y las opciones de giroscopio.
 - Franjas negras solo en el gameplay (como en el original); los menús ocupan toda la pantalla.
 - Audio: efectos, voces y música.
 - Carátula en el menú de la Switch.
@@ -52,7 +52,7 @@ Rendimiento medido en una Switch (portátil, resolución 100%): 30 FPS en la may
 Problemas conocidos:
 
 - Caídas de FPS en las zonas más pesadas: la resolución dinámica reacciona tarde.
-- Las opciones del port están solo en el menú **− + R3**, aún no dentro del menú del propio juego.
+- Las opciones del port están solo en el menú **L3 + R3**, aún no dentro del menú del propio juego.
 
 ## Capturas
 
@@ -67,7 +67,7 @@ Los controles son los del juego original. El port añade:
 | Botón | Función |
 | --- | --- |
 | Mantener **ZL** | Apuntar; el giroscopio mueve la mira mientras esté pulsado |
-| **−** + **R3** | Abrir el menú del port |
+| **L3** + **R3** | Abrir el menú del port |
 | Izquierda / derecha en el menú | Cambiar el valor de la opción |
 
 ## Versión del juego usada
@@ -103,7 +103,7 @@ sdmc:/switch/coldfear/
 
 Ábrelo desde hbmenu **manteniendo R al abrir un juego instalado** (modo título, con toda la memoria).
 
-Controles: los del juego original. **ZL** apunta (y activa el giroscopio), **− + R3** abre el menú del port.
+Controles: los del juego original. **ZL** apunta (y activa el giroscopio), **L3 + R3** abre el menú del port.
 
 ## Compilar (port nuevo, carpeta `kit/`)
 

@@ -27,7 +27,7 @@ As versões 0.1.x são o port novo (pasta `kit/`, Direct3D 8 reescrito em Vulkan
 
 ## 0.1.0 a 0.1.32
 
-- Port refeito sobre o XboxSwitchPortKit: geometria, HUD, lanterna, brilho, som do menu e do jogo, contador de FPS, menu do port (− + R3).
+- Port refeito sobre o XboxSwitchPortKit: geometria, HUD, lanterna, brilho, som do menu e do jogo, contador de FPS, menu do port (L3 + R3).
 
 ## 0.0.3 — 2026-10-22
 
