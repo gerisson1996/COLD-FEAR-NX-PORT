@@ -1,12 +1,24 @@
-[Português (BR)](README.md) | **English** | [Español](README.es.md)
+<div align="center">
+
+<img src="artwork/cold-fear-cover.png" alt="Cold Fear" width="280">
 
 # Cold Fear (Xbox) for Nintendo Switch
 
+A static recompilation port of the original Xbox Cold Fear, running natively on the Switch.
+
+![version](https://img.shields.io/badge/version-0.1.37-blue) ![platform](https://img.shields.io/badge/platform-Nintendo%20Switch-E60012?logo=nintendoswitch&logoColor=white) ![license](https://img.shields.io/badge/license-MIT-green) [![Ko-fi](https://img.shields.io/badge/Ko--fi-support-FF5E5B?logo=ko-fi&logoColor=white)](https://ko-fi.com/gerissoncassiano)
+
+[Português (BR)](README.md) · **English** · [Español](README.es.md)
+
+[Features](#status) · [Play](#play) · [Building](#building-new-port-kit-folder) · [Changelog](CHANGELOG.md) · [Support](#support-the-project)
+
+</div>
+
+---
+
 An experimental static recompilation port: the Xbox's x86 executable is turned into C++ and compiled for ARM64 with the [XboxSwitchPortKit](kit/) and a Vulkan (NVK) renderer. This is not emulation: the game's code runs natively, and the Xbox libraries (Direct3D 8, DirectSound, kernel) are rewritten for the Switch.
 
-Version **0.1.37** — by RECOMP-GUTO.
-
-**This repository does not contain the game.** The disc files, the XBE and the C code generated from it are not distributed. To build or play you need your own copy of Cold Fear (Xbox).
+> **This repository does not contain the game.** The disc files, the XBE and the C code generated from it are not distributed. To build or play you need your own copy of Cold Fear (Xbox).
 
 ## Support the project
 
@@ -17,26 +29,6 @@ The port is free and open source. If you would like to support the development t
 From Brazil you can also use **PIX** (email key): `pocketneogames@gmail.com` — QR code in the [Portuguese README](README.md#apoie-o-projeto).
 
 Donations are optional: nobody has to donate to play, and the project neither includes nor sells the game.
-
-## Game version used
-
-The port was made and tested with this version. Other regions or revisions may not work, because the code depends on the exact executable.
-
-| Field | Value |
-| --- | --- |
-| Game | Cold Fear (Xbox, Ubisoft, 2005) |
-| Region | NTSC-U (USA) |
-| Title ID | `0x5553004B` (US-075) |
-| Certificate version | 1 |
-| XBE built | 2005-02-06 (XDK 5849) |
-| `default.xbe` | 3,624,960 bytes |
-| `default.xbe` SHA-256 | `7371e422ecd0ac5c95ebaa343a6a9c3d504f2f261a53ed8acf212f258ab377ef` |
-
-To check your copy in PowerShell:
-
-```powershell
-Get-FileHash .\game\default.xbe -Algorithm SHA256
-```
 
 ## Status
 
@@ -61,6 +53,42 @@ Known issues:
 
 - FPS drops in the heaviest areas: the dynamic resolution reacts late.
 - The port's options are only in the **− + R3** menu, not yet inside the game's own menu.
+
+## Screenshots
+
+Taken from the PC test build, which uses the same game code and renderer as the Switch.
+
+<p align="center"><img src="docs/img/gameplay-1.png" width="48%"> <img src="docs/img/gameplay-2.png" width="48%"></p>
+
+## Controls
+
+The controls are the original game's. The port adds:
+
+| Button | What it does |
+| --- | --- |
+| Hold **ZL** | Aim; the gyro moves the aim while it is held |
+| **−** + **R3** | Open the port menu |
+| Left / right in the menu | Change the option's value |
+
+## Game version used
+
+The port was made and tested with this version. Other regions or revisions may not work, because the code depends on the exact executable.
+
+| Field | Value |
+| --- | --- |
+| Game | Cold Fear (Xbox, Ubisoft, 2005) |
+| Region | NTSC-U (USA) |
+| Title ID | `0x5553004B` (US-075) |
+| Certificate version | 1 |
+| XBE built | 2005-02-06 (XDK 5849) |
+| `default.xbe` | 3,624,960 bytes |
+| `default.xbe` SHA-256 | `7371e422ecd0ac5c95ebaa343a6a9c3d504f2f261a53ed8acf212f258ab377ef` |
+
+To check your copy in PowerShell:
+
+```powershell
+Get-FileHash .\game\default.xbe -Algorithm SHA256
+```
 
 ## Play
 
@@ -112,9 +140,23 @@ powershell -ExecutionPolicy Bypass -File C:\XboxSwitchPortKit\ferramentas\empaco
 
 The result is `sd\switch\coldfear\coldfear.nro`.
 
+## Repository layout
+
+| Folder | Contents |
+| --- | --- |
+| `kit/` | The current port (0.1.x) and the kit used to build it |
+| `src/`, `xboxrecomp/`, `switch/`, `tools/`, `config/` | The old port (0.0.x), with NV2A emulation |
+| `docs/` | Component provenance (`PROVENANCE.md`) and the old port's notes (`port-antigo/`) |
+| `artwork/` | Cover and icon |
+| `CHANGELOG.md` | Version history (Portuguese) |
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) (Portuguese).
+
 ## Old port (0.0.x)
 
-The code in the root (`src/`, `xboxrecomp/`, `switch/`, `tools/`) is the first port, with NV2A GPU emulation, stopped at 0.0.3 (22–30 FPS). Its instructions are in `docs/BUILD_STATUS.md` and in this README's history.
+The code in the root (`src/`, `xboxrecomp/`, `switch/`, `tools/`) is the first port, with NV2A GPU emulation, stopped at 0.0.3 (22–30 FPS). Its instructions are in `docs/port-antigo/BUILD_STATUS.md` and in this README's history.
 
 ## Licenses and provenance
 

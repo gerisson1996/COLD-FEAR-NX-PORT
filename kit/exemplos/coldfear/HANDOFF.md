@@ -1,7 +1,7 @@
 # Cold Fear no XboxSwitchPortKit — estado para continuar
 
 Kit: `C:\XboxSwitchPortKit` (HLE D3D8, backend Vulkan/NVK no Switch). Este jogo: `exemplos\coldfear`.
-Port antigo (recomp com emulação NV2A, referência de comportamento): `C:\Users\geris\OneDrive\Área de Trabalho\cold fear 1`.
+Port antigo (recomp com emulação NV2A, referência de comportamento): a raiz deste repositório.
 
 ## Compilar e empacotar
 - Versão: `exemplos/coldfear/port.cmake`, `PORT_VERSION` (aumentar a cada build; o log mostra `build switch-X`). Atual: 0.1.37.

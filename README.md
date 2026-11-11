@@ -1,12 +1,24 @@
-**Português (BR)** | [English](README.en.md) | [Español](README.es.md)
+<div align="center">
+
+<img src="artwork/cold-fear-cover.png" alt="Cold Fear" width="280">
 
 # Cold Fear (Xbox) para Nintendo Switch
 
+Port por recompilação estática do Cold Fear do Xbox original, rodando nativo no Switch.
+
+![version](https://img.shields.io/badge/version-0.1.37-blue) ![platform](https://img.shields.io/badge/platform-Nintendo%20Switch-E60012?logo=nintendoswitch&logoColor=white) ![license](https://img.shields.io/badge/license-MIT-green) [![Ko-fi](https://img.shields.io/badge/Ko--fi-support-FF5E5B?logo=ko-fi&logoColor=white)](https://ko-fi.com/gerissoncassiano)
+
+**Português (BR)** · [English](README.en.md) · [Español](README.es.md)
+
+[Recursos](#estado) · [Jogar](#jogar) · [Compilar](#compilar-port-novo-pasta-kit) · [Histórico](CHANGELOG.md) · [Apoiar](#apoie-o-projeto)
+
+</div>
+
+---
+
 Port experimental por recompilação estática: o executável x86 do Xbox vira C++, compilado para ARM64, com o [XboxSwitchPortKit](kit/) e um renderizador Vulkan (NVK). Não é emulação: o código do jogo roda nativo, e as bibliotecas do Xbox (Direct3D 8, DirectSound, kernel) são reescritas para o Switch.
 
-Versão **0.1.37** — autor RECOMP-GUTO.
-
-**Este repositório não contém o jogo.** Os arquivos do disco, o XBE e o código C gerado a partir dele não são distribuídos. Para compilar ou jogar você precisa da sua própria cópia de Cold Fear (Xbox).
+> **Este repositório não contém o jogo.** Os arquivos do disco, o XBE e o código C gerado a partir dele não são distribuídos. Para compilar ou jogar você precisa da sua própria cópia de Cold Fear (Xbox).
 
 ## Apoie o projeto
 
@@ -25,26 +37,6 @@ PIX copia e cola:
 ```
 
 Doação é opcional: ninguém precisa doar para jogar, e o projeto não inclui nem vende o jogo.
-
-## Versão do jogo usada
-
-O port foi feito e testado com esta versão. Outras regiões ou revisões podem não funcionar, porque o código depende do executável exato.
-
-| Campo | Valor |
-| --- | --- |
-| Jogo | Cold Fear (Xbox, Ubisoft, 2005) |
-| Região | NTSC-U (EUA) |
-| Title ID | `0x5553004B` (US-075) |
-| Versão do certificado | 1 |
-| XBE compilado em | 06/02/2005 (XDK 5849) |
-| `default.xbe` | 3.624.960 bytes |
-| SHA-256 do `default.xbe` | `7371e422ecd0ac5c95ebaa343a6a9c3d504f2f261a53ed8acf212f258ab377ef` |
-
-Para conferir a sua cópia no PowerShell:
-
-```powershell
-Get-FileHash .\game\default.xbe -Algorithm SHA256
-```
 
 ## Estado
 
@@ -69,6 +61,42 @@ Problemas conhecidos:
 
 - Quedas de FPS nas áreas mais pesadas: a resolução dinâmica demora a reagir.
 - As opções do port ficam só no menu **− + R3**, ainda não dentro do menu do próprio jogo.
+
+## Capturas
+
+Capturas da build de teste para PC, que usa o mesmo código do jogo e o mesmo renderizador do Switch.
+
+<p align="center"><img src="docs/img/gameplay-1.png" width="48%"> <img src="docs/img/gameplay-2.png" width="48%"></p>
+
+## Controles
+
+Os controles são os do jogo original. O port acrescenta:
+
+| Botão | Função |
+| --- | --- |
+| Segurar **ZL** | Mirar; o giroscópio move a mira enquanto estiver segurado |
+| **−** + **R3** | Abrir o menu do port |
+| Esquerda / direita no menu | Mudar o valor da opção |
+
+## Versão do jogo usada
+
+O port foi feito e testado com esta versão. Outras regiões ou revisões podem não funcionar, porque o código depende do executável exato.
+
+| Campo | Valor |
+| --- | --- |
+| Jogo | Cold Fear (Xbox, Ubisoft, 2005) |
+| Região | NTSC-U (EUA) |
+| Title ID | `0x5553004B` (US-075) |
+| Versão do certificado | 1 |
+| XBE compilado em | 06/02/2005 (XDK 5849) |
+| `default.xbe` | 3.624.960 bytes |
+| SHA-256 do `default.xbe` | `7371e422ecd0ac5c95ebaa343a6a9c3d504f2f261a53ed8acf212f258ab377ef` |
+
+Para conferir a sua cópia no PowerShell:
+
+```powershell
+Get-FileHash .\game\default.xbe -Algorithm SHA256
+```
 
 ## Jogar
 
@@ -120,9 +148,23 @@ powershell -ExecutionPolicy Bypass -File C:\XboxSwitchPortKit\ferramentas\empaco
 
 O resultado fica em `sd\switch\coldfear\coldfear.nro`.
 
+## Estrutura do repositório
+
+| Pasta | Conteúdo |
+| --- | --- |
+| `kit/` | Port atual (0.1.x) e o kit usado para compilá-lo |
+| `src/`, `xboxrecomp/`, `switch/`, `tools/`, `config/` | Port antigo (0.0.x), com emulação da NV2A |
+| `docs/` | Origem dos componentes (`PROVENANCE.md`) e as notas do port antigo (`port-antigo/`) |
+| `artwork/` | Capa e ícone |
+| `CHANGELOG.md` | Histórico de versões |
+
+## Histórico de versões
+
+Veja [CHANGELOG.md](CHANGELOG.md).
+
 ## Port antigo (0.0.x)
 
-O código na raiz (`src/`, `xboxrecomp/`, `switch/`, `tools/`) é o primeiro port, com emulação da GPU NV2A, parado na 0.0.3 (22–30 FPS). As instruções dele estão em `docs/BUILD_STATUS.md` e no histórico deste README.
+O código na raiz (`src/`, `xboxrecomp/`, `switch/`, `tools/`) é o primeiro port, com emulação da GPU NV2A, parado na 0.0.3 (22–30 FPS). As instruções dele estão em `docs/port-antigo/BUILD_STATUS.md` e no histórico deste README.
 
 ## Licenças e origem
 
