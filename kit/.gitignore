@@ -1,0 +1,2 @@
+# the root .gitignore leaves out game/ (the disc files); here game/ folders are source code
+!game/

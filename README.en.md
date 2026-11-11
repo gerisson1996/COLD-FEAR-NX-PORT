@@ -2,9 +2,9 @@
 
 # Cold Fear (Xbox) for Nintendo Switch
 
-An experimental static recompilation port: the Xbox's x86 executable is turned into C and compiled for ARM64 with the [xboxrecomp](xboxrecomp/) toolkit and a Vulkan (NVK) renderer. This is not emulation: the game's code runs natively, and only the Xbox hardware (NV2A GPU, audio, kernel) is reimplemented.
+An experimental static recompilation port: the Xbox's x86 executable is turned into C++ and compiled for ARM64 with the [XboxSwitchPortKit](kit/) and a Vulkan (NVK) renderer. This is not emulation: the game's code runs natively, and the Xbox libraries (Direct3D 8, DirectSound, kernel) are rewritten for the Switch.
 
-Version **0.0.3** — by RECOMP-GUTO.
+Version **0.1.37** — by RECOMP-GUTO.
 
 **This repository does not contain the game.** The disc files, the XBE and the C code generated from it are not distributed. To build or play you need your own copy of Cold Fear (Xbox).
 
@@ -40,90 +40,84 @@ Get-FileHash .\game\default.xbe -Algorithm SHA256
 
 ## Status
 
-Playable on real Switch hardware, from the menu to gameplay on the ship.
+Playable on a real Switch, from the menu into gameplay, at 30 FPS most of the time.
 
-- Audio: sound effects, voices and music (FMOD streams played on the host).
-- Video: Vulkan/NVK with the NV2A's vertex and pixel shaders translated to GLSL, fog, stencil, lamp shadow maps, volume textures, polygon offset, the game's gamma ramp.
-- NV2A fixed-function lighting (per-vertex lights, texture coordinate generation, texture matrices) in the vertex shader.
-- In-game brightness: hold **−** and press the D-pad **up/down** (0 to 10, saved to the SD card).
-- **In-game mod menu**: hold **−** and press **R3**. It has brightness, resolution, an FPS counter, lamp shadows (off, 25%, 50%, 75% or full), fog and overclock. Choices are saved in `mods.txt`.
-- Performance: about 22–30 FPS on the ship without overclocking (the optional overclock adds ~5).
-- Internal resolution 960×720 by default (`RECOMP_GL_SCALE`), sharper on the 720p screen.
+Since version 0.1 the port has been rebuilt on the **XboxSwitchPortKit** (the [`kit/`](kit/) folder): instead of emulating the NV2A GPU, the Xbox's Direct3D 8 and DirectSound are rewritten directly over Vulkan (NVK) and the Switch's audio. The old port (0.0.x, with NV2A emulation) stays in the repository root for reference.
+
+What 0.1.37 has:
+
+- **Gyro aiming:** hold **ZL** (aim) and move the console. The turn goes straight into the game's aim angles, one to one, with none of the stick's dead zone or acceleration. Options: sensitivity, vertical speed, axis (turn / lean / both), steadiness (filters hand shake), drift correction and invert X/Y.
+- **Lamp shadows** fixed: the player and objects cast shadows, without the dark straight-edged areas seen before.
+- **OLED screen:** an OLED SCREEN BOOST option (AUTO / OFF / ON) that lifts the dark tones. On AUTO it turns on by itself on a Switch OLED in handheld mode and off when docked.
+- **Port menu:** hold **−** and press **R3**. Render resolution, screen filter, brightness, V-Sync, FPS cap, FPS counter, anisotropic filtering, shadows, stick dead zones and sensitivity, audio output and the gyro options.
+- Black bars only in gameplay (as in the original); menus fill the screen.
+- Audio: effects, voices and music.
+- Cover art in the Switch menu.
+- No overclock.
+
+Performance measured on a Switch (handheld, 100% resolution): 30 FPS for most of the game; heavy areas drop to 23–26 FPS for a few seconds, as do loads and the first time an effect appears. Every 300 frames the log records the FPS and where the time went (game code, GPU, idle).
 
 Known issues:
 
-- Specular highlights of the fixed-function lighting are not computed yet.
-- Diagnostic logging is still compiled in.
+- FPS drops in the heaviest areas: the dynamic resolution reacts late.
+- The port's options are only in the **− + R3** menu, not yet inside the game's own menu.
 
-## Upcoming fixes
+## Play
 
-- **Performance:** reach a steady 30 FPS by cutting the cost of calls between game functions (registers saved on every call), of TLS reads and of switching between the game's threads.
-
-## Play (ready-made release)
-
-1. Download `coldfear.nro` from [Releases](https://github.com/gerisson1996/COLD-FEAR-NX-PORT/releases).
-2. Copy it to `sdmc:/switch/coldfear/`.
-3. Copy your disc's files to `sdmc:/switch/coldfear/game/`.
-4. Launch through title takeover (hold R while opening an installed game) to get the full memory.
+You need your own copy of Cold Fear (Xbox, NTSC-U). **From 0.1 on the `.nro` is not distributed here**, because it contains the recompiled game code: build your own (next section).
 
 ```text
-switch/coldfear/
+sdmc:/switch/coldfear/
   coldfear.nro
-  coldfear_env.txt   (optional)
-  game/
-    default.xbe
-    bigfile.bin
-    data/
+  game/              <- the disc files (default.xbe, bigfile.bin, DATA/...) or an .iso
+  logs/              <- created by the port
 ```
 
-The log is written to `sdmc:/switch/coldfear/coldfear_log.txt`.
+Open it from hbmenu **while holding R on an installed game** (title mode, with all the memory).
 
-## Building
+Controls: the original game's. **ZL** aims (and turns the gyro on), **− + R3** opens the port menu.
 
-You need:
+## Building (new port, `kit/` folder)
 
-- devkitPro with devkitA64, libnx and SDL2 (MSYS2).
-- The NVK SDK in `nvk_sdk/` (Mesa NVK for Switch; not included here because of its size).
-- Python with `capstone`, to generate the C code.
-- Your Cold Fear disc files in `game/`.
+`kit/` holds the port's and the kit's code, without the game and without the large binaries:
 
-Generate the C code from your `default.xbe`:
+| Folder | What it is |
+| --- | --- |
+| `kit/exemplos/coldfear/` | The port: Direct3D 8 and DirectSound HLE, gyro, shadows, OLED, menu (`src/`), `port.cmake`, `config/game.toml`, cover. `HANDOFF.md` has the development notes (Portuguese). |
+| `kit/host-switch/` | The Switch layer: Vulkan/NVK, audio, controllers, gyro, ImGui. |
+| `kit/host-pc/` | A Windows test build with the same game code and renderer, to find bugs without the console. |
+| `kit/sdk/XboxXBE-Recomp/` | The recompiler and runtime ([TGP482/XboxXBE-Recomp](https://github.com/TGP482/XboxXBE-Recomp), MIT), with the changes for the Switch. |
+| `kit/ferramentas/`, `kit/docs/` | Scripts to recompile, build and package, and the kit's documentation (Portuguese). |
+
+Not in the repository, for size or because they come from the game: `nvk/` (the Mesa NVK driver built for the Switch), `third_party/` (glslang, Dear ImGui, toml++), `exemplos/coldfear/assets/default.xbe` and `exemplos/coldfear/generated/` (the C++ generated from your xbe).
+
+Steps (details in [`kit/LEIA-ME.md`](kit/LEIA-ME.md) and [`kit/docs/`](kit/docs/)):
+
+1. Copy `kit/` to a path with no accents or spaces, such as `C:\XboxSwitchPortKit`, and add `nvk/` and `third_party/`.
+2. Install Visual Studio 2022 Build Tools with Clang and devkitPro with `switch-dev` ([requirements](kit/docs/01-requisitos.md)).
+3. Put your `default.xbe` in `exemplos\coldfear\assets\`.
+4. Recompile, build and package:
 
 ```powershell
-.\tools\regen.ps1 -Python 'C:\path\python.exe'
+powershell -ExecutionPolicy Bypass -File C:\XboxSwitchPortKit\ferramentas\recompilar.ps1 C:\XboxSwitchPortKit\exemplos\coldfear
 ```
-
-Build (MSYS2/devkitPro, in this folder):
 
 ```bash
-bash switch/build.sh
+/c/devkitPro/msys2/usr/bin/bash.exe -lc 'cd /c/XboxSwitchPortKit && JOBS=8 ./ferramentas/build_switch.sh exemplos/coldfear'
 ```
-
-Lay out the SD card folder in `switch_sd/`:
 
 ```powershell
-.\tools\package.ps1
+powershell -ExecutionPolicy Bypass -File C:\XboxSwitchPortKit\ferramentas\empacotar.ps1 C:\XboxSwitchPortKit\exemplos\coldfear
 ```
 
-To check the disc files against an ISO:
+The result is `sd\switch\coldfear\coldfear.nro`.
 
-```powershell
-python .\tools\verify_disc.py 'C:\path\Cold Fear.iso'
-```
+## Old port (0.0.x)
 
-## Options (`coldfear_env.txt`)
-
-One per line, `KEY=value`; lines starting with `#` are ignored.
-
-| Option | Effect |
-| --- | --- |
-| `COLDFEAR_LOG=0` | no log |
-| `NV2A_BRIGHTNESS=n` | starting brightness (0–10) when there is no `brightness.txt` yet |
-| `RECOMP_GL_SCALE=n` | internal resolution: 1 = 640×480, 1.5 = 960×720 (default), 2 = 1280×960 |
-| `RECOMP_VK_INSTANCE=0` | turns off batching of repeated draws (on by default) |
-| `NV2A_SHADOW_BIAS=n` | tolerance of the lamps' shadow comparison (default 128) |
-| `COLDFEAR_CPU_MHZ` / `COLDFEAR_GPU_MHZ` / `COLDFEAR_MEM_MHZ` | optional overclock |
+The code in the root (`src/`, `xboxrecomp/`, `switch/`, `tools/`) is the first port, with NV2A GPU emulation, stopped at 0.0.3 (22–30 FPS). Its instructions are in `docs/BUILD_STATUS.md` and in this README's history.
 
 ## Licenses and provenance
 
-See `docs/PROVENANCE.md` for where each component comes from. The xboxrecomp toolkit keeps its licenses in `xboxrecomp/LICENSE`, `xboxrecomp/NOTICE` and `xboxrecomp/LICENSES/`; the rest follows `LICENSE` and `NOTICE` at the root. Do not distribute the game files, the ISO or the generated code.
+- New port: XboxXBE-Recomp (MIT), Black-Android, the base of `kit/exemplos/coldfear/src/common` (MIT, `kit/exemplos/coldfear/LICENSE-Black-Android`), Mesa/NVK (MIT), glslang, Dear ImGui and toml++ under their own licenses.
+- Old port: see `docs/PROVENANCE.md`; the xboxrecomp toolkit keeps its licenses in `xboxrecomp/LICENSE`, `xboxrecomp/NOTICE` and `xboxrecomp/LICENSES/`; the rest follows `LICENSE` and `NOTICE` in the root.
+- Do not distribute the game files, the ISO, the generated code or a built `.nro`.
